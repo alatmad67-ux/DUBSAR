@@ -1,0 +1,98 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Primary: Vibrant Orange #FF6B00 - Tonal Palette MD3 */
+    --primary: 25 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Background: Neutral Surface #FDF8F5 */
+    --background: 22 60% 98%;
+    --foreground: 240 3% 10%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 240 3% 10%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 3% 10%;
+    
+    --secondary: 25 20% 90%;
+    --secondary-foreground: 25 100% 10%;
+    
+    --muted: 22 20% 94%;
+    --muted-foreground: 240 3% 45%;
+    
+    --accent: 25 100% 96%;
+    --accent-foreground: 25 100% 40%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 22 20% 90%;
+    --input: 22 20% 90%;
+    --ring: 25 100% 50%;
+    
+    --radius: 1.75rem; /* 28px for MD3 Cards */
+
+    /* MD3 Specific Shadows */
+    --shadow-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.30);
+    --shadow-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.30);
+    --shadow-3: 0px 1px 3px 0px rgba(0, 0, 0, 0.30), 0px 4px 8px 3px rgba(0, 0, 0, 0.15);
+  }
+
+  .dark {
+    --background: 240 3% 8%;
+    --foreground: 0 0% 98%;
+    
+    --card: 240 3% 12%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 240 3% 10%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 25 100% 55%;
+    --primary-foreground: 0 0% 10%;
+    
+    --secondary: 240 3% 20%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 240 3% 18%;
+    --muted-foreground: 240 3% 65%;
+    
+    --accent: 25 100% 15%;
+    --accent-foreground: 25 100% 70%;
+    
+    --border: 240 3% 20%;
+    --input: 240 3% 20%;
+    --ring: 25 100% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground selection:bg-primary/30;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+.md3-card-elevated {
+  @apply rounded-[28px] border-none bg-card shadow-[var(--shadow-1)] transition-all duration-300 hover:shadow-[var(--shadow-2)];
+}
+
+.md3-button-filled {
+  @apply rounded-full px-6 py-3 font-black text-sm transition-all active:scale-95 shadow-sm hover:shadow-md;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

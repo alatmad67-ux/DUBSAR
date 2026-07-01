@@ -1,0 +1,23 @@
+
+{
+  "name": "مجمع محمد علاء - MMA",
+  "short_name": "MMA",
+  "description": "المنصة الرسمية لبيع وصيانة كافة أنواع الدراجات النارية",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FDF8F5",
+  "theme_color": "#FF6B00",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://placehold.co/192x192/FF6B00/FFFFFF?text=MMA",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://placehold.co/512x512/FF6B00/FFFFFF?text=MMA",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

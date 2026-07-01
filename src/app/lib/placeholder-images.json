@@ -1,0 +1,41 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "hero-1",
+      "description": "Premium Motorcycle Banner",
+      "imageUrl": "https://picsum.photos/seed/moto_hero1/1200/600",
+      "imageHint": "motorcycle sports"
+    },
+    {
+      "id": "hero-2",
+      "description": "Spare Parts Banner",
+      "imageUrl": "https://picsum.photos/seed/moto_hero2/1200/600",
+      "imageHint": "engine parts"
+    },
+    {
+      "id": "cat-scooters",
+      "description": "Scooters Category",
+      "imageUrl": "https://picsum.photos/seed/scooters/400/400",
+      "imageHint": "scooter motorcycle"
+    },
+    {
+      "id": "cat-sports",
+      "description": "Sports Category",
+      "imageUrl": "https://picsum.photos/seed/sports/400/400",
+      "imageHint": "sports bike"
+    },
+    {
+      "id": "product-tire",
+      "description": "Performance Tire",
+      "imageUrl": "https://picsum.photos/seed/tire1/500/500",
+      "imageHint": "motorcycle tire"
+    },
+    {
+      "id": "product-helmet",
+      "description": "Safety Helmet",
+      "imageUrl": "https://picsum.photos/seed/helmet1/500/500",
+      "imageHint": "motorcycle helmet"
+    }
+  ]
+}
