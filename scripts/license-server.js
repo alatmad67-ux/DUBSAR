@@ -1244,13 +1244,8 @@ const server = http.createServer((req, res) => {
   res.end('Not found');
 });
 
-// Launch logic
-server.listen(PORT, '127.0.0.1', () => {
+function openClientWindow() {
   const url = `http://127.0.0.1:${PORT}`;
-  console.log(`\n======================================================`);
-  console.log(`✨ DUBSAR License & Invoice Studio is running at: ${url}`);
-  console.log(`======================================================\n`);
-
   const edgePath86 = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
   const edgePath64 = 'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe';
   const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -1264,4 +1259,25 @@ server.listen(PORT, '127.0.0.1', () => {
   } else {
     exec(`start ${url}`);
   }
+}
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    // Server is already running in background, just open the window immediately
+    console.log(`ℹ️ الخادم يعمل بالفعل على المنفذ ${PORT}، جاري فتح نافذة التطبيق فوراً...`);
+    openClientWindow();
+    process.exit(0);
+  } else {
+    console.error('Server error:', err);
+    process.exit(1);
+  }
 });
+
+server.listen(PORT, '127.0.0.1', () => {
+  const url = `http://127.0.0.1:${PORT}`;
+  console.log(`\n======================================================`);
+  console.log(`✨ DUBSAR License & Invoice Studio is running at: ${url}`);
+  console.log(`======================================================\n`);
+  openClientWindow();
+});
+

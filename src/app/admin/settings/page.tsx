@@ -1252,47 +1252,27 @@ export default function ComprehensiveSettingsPage() {
                   <Lock className="h-5 w-5 text-amber-500" />
                   <span>الترخيص والملكية (DUBSAR Lifetime)</span>
                 </h2>
-                <p className="text-xs font-bold text-muted-foreground">تفاصيل رخصة البرنامج على هذا الجهاز ومركز توليد الأكواد للزبائن</p>
+                <p className="text-xs font-bold text-muted-foreground">تفاصيل رخصة البرنامج وحالة التفعيل على هذا الجهاز</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-5 rounded-2xl border bg-card space-y-3 shadow-sm">
+              <div className="max-w-xl">
+                <div className="p-6 rounded-2xl border bg-card space-y-4 shadow-sm">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-black">
+                    <div className="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-black text-xl">
                       🛡️
                     </div>
                     <div>
-                      <h3 className="font-black text-sm">بيانات رخصة هذا الجهاز</h3>
-                      <p className="text-xs text-muted-foreground font-medium">عرض حالة الترخيص، اسم النشاط، ومعرف الجهاز</p>
+                      <h3 className="font-black text-sm">بيانات ورخصة هذا الجهاز</h3>
+                      <p className="text-xs text-muted-foreground font-medium">عرض حالة تفعيل البرنامج، اسم النشاط التجاري، ومعرف الجهاز الحالي</p>
                     </div>
                   </div>
                   <Button
                     type="button"
                     onClick={() => window.location.href = '/admin/license'}
-                    className="w-full rounded-xl font-black text-xs h-10 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="w-full rounded-xl font-black text-xs h-11 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
                   >
-                    <span>فتح صفحة رخصة الجهاز الحالية</span>
+                    <span>عرض تفاصيل رخصة البرنامج الحالية</span>
                     <ExternalLink className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-
-                <div className="p-5 rounded-2xl border bg-gradient-to-br from-amber-500/10 via-card to-card space-y-3 shadow-sm border-amber-500/30">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center font-black">
-                      👑
-                    </div>
-                    <div>
-                      <h3 className="font-black text-sm">استوديو إصدار التراخيص للزبائن</h3>
-                      <p className="text-xs text-muted-foreground font-medium">خاص بالمطور: توليد وتوقيع أكواد التراخيص الرقمية</p>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={() => window.location.href = '/admin/developer/licenses'}
-                    className="w-full rounded-xl font-black text-xs h-10 gap-2 bg-amber-500 hover:bg-amber-600 text-slate-950"
-                  >
-                    <span>فتح مركز إصدار التراخيص للزبائن</span>
-                    <Key className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
