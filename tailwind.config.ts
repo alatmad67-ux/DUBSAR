@@ -10,9 +10,12 @@ export default {
   theme: {
     extend: {
       fontFamily: {
+        sans: ['"IBM Plex Sans Arabic"', '"Readex Pro"', 'Almarai', 'sans-serif'],
+        plex: ['"IBM Plex Sans Arabic"', 'sans-serif'],
+        readex: ['"Readex Pro"', 'sans-serif'],
         almarai: ['Almarai', 'sans-serif'],
-        body: ['Almarai', 'sans-serif'],
-        headline: ['Almarai', 'sans-serif'],
+        body: ['"IBM Plex Sans Arabic"', 'sans-serif'],
+        headline: ['"IBM Plex Sans Arabic"', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
