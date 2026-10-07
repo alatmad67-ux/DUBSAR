@@ -725,11 +725,10 @@ export default function DubsarLandingPage() {
       <footer className="relative z-10 border-t border-white/[0.06] py-12 px-4 sm:px-6 text-center text-xs text-zinc-500 space-y-4">
         <div className="flex items-center justify-center gap-3">
           <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-amber-500/30 bg-zinc-900 shrink-0 shadow-sm">
-            <Image 
+            <img 
               src="/logo.jpg" 
               alt="DUBSAR 2.0" 
-              fill
-              className="object-cover"
+              className="w-full h-full object-cover"
             />
           </div>
           <div className="flex items-center gap-2 text-zinc-300 font-mono text-xs">
