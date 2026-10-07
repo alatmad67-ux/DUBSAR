@@ -13,6 +13,8 @@ export interface Product {
   purchasePrice: number;
   retailPrice: number;
   wholesalePrice: number;
+  agentPrice: number;
+  unit?: string;
   stockQuantity: number;
   minStockLevel: number;
   imageUrl?: string;

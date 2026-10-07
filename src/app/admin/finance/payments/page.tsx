@@ -1,16 +1,15 @@
-
 'use client';
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   Plus, 
   Search, 
   Banknote, 
-  User, 
+  Building2, 
   Calendar, 
-  Printer,
-  Loader2,
-  Trash2
+  Printer, 
+  Loader2, 
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,170 +24,383 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useFirestore, useCollection, useUser } from "@/firebase";
-import { collection, query, orderBy, doc, writeBatch, increment, where } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
+import { InventoryService } from "@/services/inventory-service";
+import { PrintEngine } from "@/services/print-engine";
+import { Badge } from "@/components/ui/badge";
 
 export default function PaymentVouchersPage() {
-  const db = useFirestore();
-  const { profile, tenantId } = useUser();
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [vouchers, setVouchers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
+  const [amountInput, setAmountInput] = useState<string>("");
+  const [currentUser, setCurrentUser] = useState<any>({});
 
-  // FIXED: Server-side tenant filtering for payment vouchers
-  const vouchersQuery = useMemo(() => query(
-    collection(db, 'paymentVouchers'), 
-    where('tenantId', '==', tenantId),
-    orderBy('timestamp', 'desc')
-  ), [db, tenantId]);
-  const { data: vouchers, loading } = useCollection(vouchersQuery);
+  useEffect(() => {
+    try {
+      const sessionStr = localStorage.getItem('dubsar_session');
+      if (sessionStr) setCurrentUser(JSON.parse(sessionStr));
+    } catch {
+      setCurrentUser({});
+    }
+    loadData();
+  }, []);
 
-  // FIXED: Server-side tenant filtering for suppliers selection
-  const suppliersQuery = useMemo(() => query(
-    collection(db, 'suppliers'),
-    where('tenantId', '==', tenantId)
-  ), [db, tenantId]);
-  const { data: suppliers } = useCollection(suppliersQuery);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [supplierRows] = await Promise.all([
+        InventoryService.getSuppliers()
+      ]);
+      setSuppliers(Array.isArray(supplierRows) ? supplierRows : []);
+
+      const savedVouchers = localStorage.getItem('dubsar_payment_vouchers');
+      if (savedVouchers) {
+        setVouchers(JSON.parse(savedVouchers));
+      } else {
+        setVouchers([]);
+      }
+    } catch (e) {
+      console.error("Failed to load payment vouchers data:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedSupplier = useMemo(() => {
+    return suppliers.find(s => String(s.id) === String(selectedSupplierId));
+  }, [suppliers, selectedSupplierId]);
+
+  const filtered = useMemo(() => {
+    return vouchers.filter((v: any) => 
+      (v.targetName?.toLowerCase() || "").includes(search.toLowerCase()) || 
+      (v.voucherNumber || "").includes(search)
+    );
+  }, [vouchers, search]);
 
   const handleAddVoucher = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const amount = Number(amountInput);
+    if (!amount || amount <= 0) {
+      toast({ variant: "destructive", title: "تنبيه", description: "يرجى إدخال مبلغ صحيح." });
+      return;
+    }
+
     setIsSaving(true);
     const formData = new FormData(e.currentTarget);
-    const supplierId = formData.get('supplierId') as string;
-    const amount = Number(formData.get('amount'));
-    const supplier = suppliers.find(s => s.id === supplierId);
+    const paymentMethod = String(formData.get('method') || 'cash');
+    const notes = String(formData.get('notes') || '').trim();
+    const customTargetName = String(formData.get('customTargetName') || '').trim();
 
     try {
-      const batch = writeBatch(db);
-      const voucherNo = `PV-${Date.now().toString().slice(-6)}`;
-      
-      const voucherRef = doc(collection(db, 'paymentVouchers'));
-      batch.set(voucherRef, {
-        tenantId,
-        voucherNumber: voucherNo,
-        targetId: supplierId,
-        targetName: supplier?.name || "جهة أخرى",
-        amount,
-        paymentMethod: formData.get('method'),
-        notes: formData.get('notes'),
-        timestamp: Date.now(),
-        employeeName: profile?.displayName || "مدير"
-      });
+      let targetName = "جهة أخرى / عام";
+      let targetPhone = "";
+      let newBalance: number | undefined = undefined;
 
-      if (supplierId) {
-        const supplierRef = doc(db, 'suppliers', supplierId);
-        batch.update(supplierRef, { balance: increment(-amount) });
-        
-        const transactionRef = doc(collection(db, "financialTransactions"));
-        batch.set(transactionRef, {
-          tenantId,
-          userId: supplierId,
-          type: 'payment_out',
-          amount: -amount,
-          description: `سند صرف رقم ${voucherNo}`,
-          timestamp: Date.now()
-        });
+      if (selectedSupplier) {
+        targetName = selectedSupplier.name;
+        targetPhone = selectedSupplier.phone || "";
+        const currentBalance = Number(selectedSupplier.balance) || 0;
+        newBalance = currentBalance - amount;
+
+        // 1. Update supplier balance in SQLite
+        await InventoryService.updateSupplier(
+          selectedSupplier.id,
+          { ...selectedSupplier, balance: newBalance },
+          currentUser
+        );
+      } else if (customTargetName) {
+        targetName = customTargetName;
       }
 
-      await batch.commit();
+      // 2. Create voucher record
+      const voucherNumber = `PV-${Date.now().toString().slice(-6)}`;
+      const newVoucher = {
+        id: `pv_${Date.now()}`,
+        voucherNumber,
+        targetId: selectedSupplier ? selectedSupplier.id : null,
+        targetName,
+        targetPhone,
+        amount,
+        paymentMethod,
+        notes,
+        employeeName: currentUser?.displayName || currentUser?.username || 'المسؤول',
+        timestamp: Date.now(),
+        currentBalance: newBalance
+      };
+
+      const updatedVouchers = [newVoucher, ...vouchers];
+      setVouchers(updatedVouchers);
+      localStorage.setItem('dubsar_payment_vouchers', JSON.stringify(updatedVouchers));
+
       setIsAddOpen(false);
-      toast({ title: "تم الصرف", description: "تم تسجيل سند الصرف وتحديث الحساب." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "خطأ" });
+      setSelectedSupplierId("");
+      setAmountInput("");
+      toast({ title: "تم الحفظ بنجاح", description: `تم تسجيل سند الصرف رقم ${voucherNumber}.` });
+
+      // 3. Print voucher
+      try {
+        const appSettings = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
+        await PrintEngine.printVoucher({
+          voucherNo: voucherNumber,
+          type: 'payment',
+          date: new Date().toLocaleDateString('ar-IQ'),
+          time: new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' }),
+          partyName: targetName,
+          partyPhone: targetPhone,
+          amount,
+          paymentMethod,
+          notes,
+          employeeName: currentUser?.displayName || currentUser?.username || 'المسؤول',
+          currentBalance: newBalance,
+          businessSettings: appSettings
+        }, '80mm');
+      } catch (printErr) {
+        console.error('Print voucher failed:', printErr);
+      }
+
+      await loadData();
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "خطأ", description: e?.message || "فشل تسجيل السند." });
     } finally {
       setIsSaving(false);
     }
   };
 
+  const handlePrintExisting = async (voucher: any, format: '80mm' | 'A4') => {
+    try {
+      const appSettings = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
+      await PrintEngine.printVoucher({
+        voucherNo: voucher.voucherNumber,
+        type: 'payment',
+        date: new Date(voucher.timestamp).toLocaleDateString('ar-IQ'),
+        time: new Date(voucher.timestamp).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' }),
+        partyName: voucher.targetName,
+        partyPhone: voucher.targetPhone,
+        amount: voucher.amount,
+        paymentMethod: voucher.paymentMethod,
+        notes: voucher.notes,
+        employeeName: voucher.employeeName,
+        currentBalance: voucher.currentBalance,
+        businessSettings: appSettings
+      }, format);
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "خطأ في الطباعة" });
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 animate-in fade-in duration-300 select-none" dir="rtl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border shadow-sm">
         <div>
-          <h1 className="text-3xl font-black">سندات الصرف</h1>
-          <p className="text-muted-foreground font-medium">إدارة المبالغ المدفوعة للموردين والمصاريف الكبرى.</p>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <Banknote className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black">سندات الصرف (المدفوعات)</h1>
+              <p className="text-muted-foreground text-xs font-bold mt-0.5">تسجيل المبالغ المصروفة للموردين والمصاريف العامة وتوثيق السندات</p>
+            </div>
+          </div>
         </div>
         
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
-            <Button className="rounded-xl h-11 font-bold gap-2 shadow-lg">
-              <Plus className="h-5 w-5" /> إنشاء سند صرف
+            <Button className="rounded-xl h-11 px-5 font-bold gap-2 shadow-sm">
+              <Plus className="h-5 w-5" /> إنشاء سند صرف جديد
             </Button>
           </DialogTrigger>
-          <DialogContent className="rounded-[32px] max-w-lg">
-            <DialogHeader><DialogTitle className="text-2xl font-black">سند صرف جديد</DialogTitle></DialogHeader>
-            <form onSubmit={handleAddVoucher} className="space-y-5 pt-4">
-               <div className="space-y-2">
-                 <Label className="font-bold">المستلم (المورد)</Label>
-                 <Select name="supplierId">
-                    <SelectTrigger className="rounded-xl h-12 bg-muted/20 border-none">
-                       <SelectValue placeholder="اختر المورد أو اترك فارغاً للمصاريف" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl">
-                       {suppliers.map((s: any) => (
-                          <SelectItem key={s.id} value={s.id} className="rounded-xl">
-                             {s.name} (دينه: {s.balance?.toLocaleString()} د.ع)
-                          </SelectItem>
-                       ))}
-                    </SelectContent>
-                 </Select>
-               </div>
-               <div className="space-y-2">
-                 <Label className="font-bold">المبلغ المصروف</Label>
-                 <Input name="amount" type="number" required placeholder="0.00" className="rounded-xl h-12 bg-muted/20 border-none" />
-               </div>
-               <div className="space-y-2">
-                  <Label className="font-bold">طريقة الصرف</Label>
-                  <Select name="method" defaultValue="cash">
-                    <SelectTrigger className="rounded-xl h-12 bg-muted/20 border-none">
-                      <SelectValue placeholder="اختر الطريقة" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl">
-                       <SelectItem value="cash">نقداً</SelectItem>
-                       <SelectItem value="transfer">تحويل بنكي</SelectItem>
-                       <SelectItem value="check">صك</SelectItem>
-                    </SelectContent>
-                  </Select>
-               </div>
-               <div className="space-y-2">
-                 <Label className="font-bold">ملاحظات / السبب</Label>
-                 <Input name="notes" placeholder="مثلاً: دفعة من حساب فاتورة..." className="rounded-xl h-12 bg-muted/20 border-none" />
-               </div>
-               <DialogFooter>
-                 <Button type="submit" disabled={isSaving} className="w-full h-14 rounded-2xl font-black text-lg">
-                   {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : "حفظ وطباعة السند"}
-                 </Button>
-               </DialogFooter>
+          <DialogContent className="rounded-[28px] max-w-lg p-0 overflow-hidden border shadow-2xl" dir="rtl">
+            <DialogHeader className="p-6 bg-slate-900 text-white">
+              <DialogTitle className="text-xl font-black flex items-center gap-2">
+                <Banknote className="h-5 w-5 text-primary" />
+                <span>إنشاء سند صرف جديد</span>
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleAddVoucher} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label className="font-bold text-xs">المورد أو الجهة المستفيدة</Label>
+                <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
+                  <SelectTrigger className="rounded-xl h-12 border bg-muted/20">
+                    <SelectValue placeholder="اختر المورد أو اترك فارغاً لمصروف عام..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl max-h-64">
+                    <SelectItem value="none" className="rounded-xl font-bold py-2.5">
+                      -- جهة أخرى / مصروف عام بدون مورد --
+                    </SelectItem>
+                    {suppliers.map((s: any) => (
+                      <SelectItem key={s.id} value={String(s.id)} className="rounded-xl font-bold py-2.5">
+                        <div className="flex justify-between items-center gap-3 w-full">
+                          <span>{s.name} {s.phone ? `(${s.phone})` : ''}</span>
+                          <span className="text-xs font-mono font-black text-slate-600">
+                            الرصيد: {(Number(s.balance) || 0).toLocaleString()} د.ع
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedSupplier && (
+                <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-muted-foreground font-bold block">رصيد حساب المورد الحالي:</span>
+                    <span className="text-base font-black font-mono text-primary mt-0.5 block">
+                      {(Number(selectedSupplier.balance) || 0).toLocaleString()} د.ع
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {(!selectedSupplierId || selectedSupplierId === 'none') && (
+                <div className="space-y-2">
+                  <Label className="font-bold text-xs">اسم الجهة أو المستفيد</Label>
+                  <Input name="customTargetName" placeholder="مثال: إيجار، بلدية، صيانة، مورد خارجي..." className="rounded-xl h-12 bg-muted/20" />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="font-bold text-xs">المبلغ المصروف (د.ع) <span className="text-rose-500">*</span></Label>
+                <Input 
+                  name="amount" 
+                  type="number" 
+                  required 
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
+                  placeholder="0" 
+                  className="rounded-xl h-12 text-lg font-black font-mono bg-muted/20" 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold text-xs">طريقة الصرف</Label>
+                <Select name="method" defaultValue="cash">
+                  <SelectTrigger className="rounded-xl h-12 bg-muted/20">
+                    <SelectValue placeholder="اختر الطريقة" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="cash" className="rounded-xl font-bold">نقداً (من الصندوق)</SelectItem>
+                    <SelectItem value="transfer" className="rounded-xl font-bold">تحويل بنكي / إلكتروني</SelectItem>
+                    <SelectItem value="check" className="rounded-xl font-bold">صك مصرفي</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold text-xs">البيان / ملاحظات الصرف</Label>
+                <Input name="notes" placeholder="تسديد فاتورة شراء، مصاريف نقل..." className="rounded-xl h-12 bg-muted/20" />
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button type="submit" disabled={isSaving} className="w-full h-12 rounded-xl font-black text-sm">
+                  {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : "حفظ وطباعة السند"}
+                </Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="rounded-[32px] overflow-hidden bg-white shadow-sm border">
+      {/* Search Bar */}
+      <div className="flex gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="بحث برقم السند أو اسم الجهة..." 
+            className="h-11 rounded-xl pr-10 border shadow-sm bg-card font-bold text-xs"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-2xl overflow-hidden bg-card shadow-sm border">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="text-right py-5 px-6">رقم السند</TableHead>
-              <TableHead className="text-right">المستلم</TableHead>
-              <TableHead className="text-right">المبلغ</TableHead>
-              <TableHead className="text-right">التاريخ</TableHead>
-              <TableHead className="text-left px-6">إجراءات</TableHead>
+            <TableRow className="bg-muted/40 font-black">
+              <TableHead className="text-right py-4 px-6 text-xs font-black">رقم السند</TableHead>
+              <TableHead className="text-right text-xs font-black">المستفيد / الجهة</TableHead>
+              <TableHead className="text-left text-xs font-black">المبلغ المصروف</TableHead>
+              <TableHead className="text-center text-xs font-black">طريقة الدفع</TableHead>
+              <TableHead className="text-right text-xs font-black">التاريخ والوقت</TableHead>
+              <TableHead className="text-right text-xs font-black">المسؤول</TableHead>
+              <TableHead className="text-center px-6 text-xs font-black">طباعة</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-               Array(5).fill(0).map((_, i) => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>)
-            ) : vouchers.map((v: any) => (
-              <TableRow key={v.id} className="hover:bg-muted/5 transition-colors">
-                <TableCell className="font-black text-sm px-6">{v.voucherNumber}</TableCell>
-                <TableCell className="font-bold">{v.targetName}</TableCell>
-                <TableCell className="font-black text-red-600">{v.amount?.toLocaleString()} د.ع</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{new Date(v.timestamp).toLocaleDateString("ar-EG")}</TableCell>
-                <TableCell className="text-left px-6">
-                  <Button variant="ghost" size="icon" className="text-primary"><Printer className="h-4 w-4" /></Button>
+              Array(4).fill(0).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell className="px-6"><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell className="px-6 text-center"><Skeleton className="h-8 w-16 rounded-lg mx-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : filtered.length > 0 ? (
+              filtered.map((v: any) => (
+                <TableRow key={v.id} className="hover:bg-muted/10 font-bold transition-colors">
+                  <TableCell className="font-mono text-primary font-black text-xs px-6">{v.voucherNumber}</TableCell>
+                  <TableCell className="text-xs">{v.targetName}</TableCell>
+                  <TableCell className="font-mono text-rose-600 font-black text-left text-xs">
+                    {Number(v.amount || 0).toLocaleString()} د.ع
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="secondary" className="text-[11px] font-bold">
+                      {v.paymentMethod === 'cash' ? 'نقداً' : v.paymentMethod === 'transfer' ? 'تحويل' : v.paymentMethod === 'check' ? 'صك' : v.paymentMethod}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs font-mono">
+                    {new Date(v.timestamp).toLocaleString("ar-IQ")}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{v.employeeName || 'المسؤول'}</TableCell>
+                  <TableCell className="text-center px-6">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 rounded-lg gap-1 text-[11px] font-bold" 
+                        onClick={() => handlePrintExisting(v, '80mm')}
+                        title="طباعة إيصال كاشير 80mm"
+                      >
+                        <Printer className="h-3.5 w-3.5 text-primary" />
+                        <span>80mm</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 rounded-lg gap-1 text-[11px] font-bold" 
+                        onClick={() => handlePrintExisting(v, 'A4')}
+                        title="طباعة سند رسمي A4"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-slate-700" />
+                        <span>A4</span>
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-xs font-bold">
+                  لا توجد سندات صرف مسجلة حتى الآن.
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </div>

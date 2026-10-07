@@ -6,6 +6,7 @@ import { FirebaseClientProvider } from "@/firebase";
 import { CartProvider } from "@/context/cart-context";
 import { TenantProvider } from "@/hooks/use-tenant";
 import { FirebaseErrorListener } from "@/components/firebase/firebase-error-listener";
+import { GlobalErrorCatcher } from "@/components/global-error-catcher";
 
 export const metadata: Metadata = {
   title: 'دوبسار - DUBSAR | منصة التجارة السحابية المتكاملة',
@@ -42,6 +43,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&display=swap" rel="stylesheet" />
       </head>
       <body className="font-almarai antialiased selection:bg-primary/20 overflow-x-hidden bg-background">
+        <GlobalErrorCatcher />
         <FirebaseClientProvider>
           <TenantProvider>
             <CartProvider>

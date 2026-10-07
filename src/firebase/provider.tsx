@@ -34,18 +34,17 @@ export function FirebaseProvider({
 
 export function useFirebase() {
   const context = useContext(FirebaseContext);
-  if (!context) throw new Error('useFirebase must be used within FirebaseProvider');
   return context;
 }
 
 export function useFirebaseApp() {
-  return useFirebase().app;
+  return useFirebase()?.app || null;
 }
 
 export function useFirestore() {
-  return useFirebase().firestore;
+  return useFirebase()?.firestore || null;
 }
 
 export function useAuth() {
-  return useFirebase().auth;
+  return useFirebase()?.auth || null;
 }

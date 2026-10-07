@@ -19,12 +19,10 @@ export class TauriDatabaseAdapter implements DatabaseAdapter {
   }
 
   async query(command: string, args?: any): Promise<any[]> {
-    try {
-      const result = await invoke(command, args);
-      return Array.isArray(result) ? result : [];
-    } catch (error) {
-      console.error(`[Tauri Query Error] ${command}:`, error);
-      return [];
+    const result = await this.execute(command, args);
+    if (!Array.isArray(result)) {
+      throw new Error(`Command ${command} returned an invalid list response`);
     }
+    return result;
   }
 }

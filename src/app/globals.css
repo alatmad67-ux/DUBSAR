@@ -119,8 +119,46 @@ img {
   height: auto;
 }
 
-.no-print {
-  @media print {
+@media print {
+  aside,
+  header,
+  nav,
+  [data-sidebar="sidebar"],
+  [data-sidebar="header"],
+  [data-sidebar="footer"],
+  .no-print,
+  .chrome-tabs-bar,
+  .screen-only,
+  button:not(.allow-print) {
     display: none !important;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .printable-invoice-wrapper {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-inside: avoid;
+  }
+
+  @page {
+    margin: 6mm;
+    size: auto;
   }
 }

@@ -17,8 +17,11 @@ import {
   History,
   Save,
   Zap,
-  MoreHorizontal
+  MoreHorizontal,
+  Barcode,
+  AlertCircle
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -43,6 +46,10 @@ export default function ProductsManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Real-time duplicate check states
+  const [formName, setFormName] = useState("");
+  const [formBarcode, setFormBarcode] = useState("");
 
   useEffect(() => {
     loadData();
@@ -71,6 +78,21 @@ export default function ProductsManagementPage() {
     );
   }, [products, searchQuery]);
 
+  // Real-time duplicate finder to avoid re-adding existing items
+  const potentialDuplicates = useMemo(() => {
+    const trimmedName = formName.trim().toLowerCase();
+    const trimmedBarcode = formBarcode.trim();
+    if (!trimmedName && !trimmedBarcode) return [];
+    if (trimmedName.length < 2 && !trimmedBarcode) return [];
+
+    return products.filter((p: any) => {
+      if (editingProduct?.id && p.id === editingProduct.id) return false;
+      const matchName = trimmedName && p.name && p.name.toLowerCase().includes(trimmedName);
+      const matchBarcode = trimmedBarcode && p.barcode && p.barcode === trimmedBarcode;
+      return matchName || matchBarcode;
+    }).slice(0, 3);
+  }, [products, formName, formBarcode, editingProduct]);
+
   const handleAction = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSaving(true);
@@ -78,58 +100,145 @@ export default function ProductsManagementPage() {
     
     const productData = {
       id: editingProduct?.id,
-      name: formData.get('name'),
-      barcode: formData.get('barcode'),
-      category: formData.get('category'),
+      name: formName || formData.get('name'),
+      barcode: formBarcode || formData.get('barcode'),
+      categoryId: formData.get('categoryId'),
+      brand: formData.get('brand'),
       retailPrice: Number(formData.get('retailPrice')),
+      wholesalePrice: Number(formData.get('wholesalePrice')),
+      agentPrice: Number(formData.get('agentPrice')),
+      unit: formData.get('unit'),
       purchasePrice: Number(formData.get('purchasePrice')),
       stockQuantity: Number(formData.get('stock')),
+      minStockLevel: Number(formData.get('minStockLevel')),
       description: formData.get('description'),
     };
 
     try {
-      await InventoryService.saveProduct(productData);
-      toast({ title: "تم الحفظ بنجاح محلياً" });
+      if (editingProduct?.id) {
+        await InventoryService.updateProduct(editingProduct.id, productData);
+      } else {
+        await InventoryService.saveProduct(productData);
+      }
+      toast({ title: "تم حفظ بيانات المادة بنجاح" });
       setIsDialogOpen(false);
+      setEditingProduct(null);
+      setFormName('');
+      setFormBarcode('');
       loadData();
     } catch (error) {
-      toast({ variant: "destructive", title: "خطأ في الحفظ في SQLite" });
+      toast({ variant: "destructive", title: "تعذر حفظ المادة، حاول مرة أخرى" });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("حذف نهائي من الجهاز؟")) return;
+    if (!confirm("هل أنت متأكد من حذف هذه المادة؟")) return;
     await InventoryService.deleteProduct(id);
     loadData();
+  };
+
+  const openCreateDialog = () => {
+    setEditingProduct(null);
+    setFormName('');
+    setFormBarcode('');
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (p: any) => {
+    setEditingProduct(p);
+    setFormName(p.name || '');
+    setFormBarcode(p.barcode || '');
+    setIsDialogOpen(true);
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-black tracking-tight">إدارة المنتجات (SQLite)</h1>
-          <p className="text-muted-foreground font-medium text-sm">DUBSAR 2.0 Local Storage Core</p>
+          <h1 className="text-3xl font-black tracking-tight">إدارة المواد والمنتجات</h1>
+          <p className="text-muted-foreground font-medium text-sm">سجل المواد والأسعار والمخزون</p>
         </div>
         <div className="flex items-center gap-3">
-           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-             <DialogTrigger asChild>
-                <Button className="rounded-xl font-bold h-11 gap-2">
-                  <Plus className="h-5 w-5" /> إضافة منتج
-                </Button>
-             </DialogTrigger>
-             <DialogContent className="max-w-2xl rounded-[32px]">
-                <form onSubmit={handleAction} className="space-y-6">
-                  <DialogHeader><DialogTitle className="text-2xl font-black">منتج جديد</DialogTitle></DialogHeader>
-                  <div className="grid grid-cols-2 gap-4" dir="rtl">
-                    <div className="space-y-2">
-                      <Label>الاسم</Label>
-                      <Input name="name" defaultValue={editingProduct?.name} required />
+          <Link href="/admin/products/barcode">
+            <Button variant="outline" className="rounded-xl font-bold h-11 gap-2 border-primary/30 text-primary hover:bg-primary/5">
+              <Barcode className="h-4 w-4" /> استوديو طباعة الباركود
+            </Button>
+          </Link>
+
+          <Button onClick={openCreateDialog} className="rounded-xl font-bold h-11 gap-2 shadow-sm">
+            <Plus className="h-5 w-5" /> إضافة مادة جديدة
+          </Button>
+
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="max-w-2xl rounded-[32px]">
+              <form onSubmit={handleAction} className="space-y-6">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-black">
+                    {editingProduct ? 'تعديل بيانات المادة' : 'إضافة مادة جديدة للمخزن'}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-4" dir="rtl">
+                  <div className="space-y-2">
+                    <Label>الاسم</Label>
+                    <Input 
+                      name="name" 
+                      value={formName} 
+                      onChange={(e) => setFormName(e.target.value)} 
+                      placeholder="اكتب اسم المادة..." 
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>الباركود</Label>
+                    <Input 
+                      name="barcode" 
+                      value={formBarcode} 
+                      onChange={(e) => setFormBarcode(e.target.value)} 
+                      placeholder="امسح أو اكتب الباركود..." 
+                    />
+                  </div>
+
+                  {/* Real-time duplicate prevention warning */}
+                  {potentialDuplicates.length > 0 && (
+                    <div className="col-span-2 p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-100 space-y-2">
+                      <div className="flex items-center gap-2 font-black text-xs">
+                        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                        <span>تنبيه: توجد مواد مسجلة مسبقاً بنفس الاسم لمنع تكرار المادة!</span>
+                      </div>
+                      <div className="divide-y divide-amber-200 dark:divide-amber-800/50 text-xs">
+                        {potentialDuplicates.map(dup => (
+                          <div key={dup.id} className="py-2 flex items-center justify-between">
+                            <div>
+                              <span className="font-black">{dup.name}</span>
+                              <span className="text-[11px] text-muted-foreground mr-2 font-mono">باركود: {dup.barcode || 'بدون'} | الرصيد: {dup.stockQuantity} | السعر: {Number(dup.retailPrice).toLocaleString()} د.ع</span>
+                            </div>
+                            <Button 
+                              type="button" 
+                              size="sm" 
+                              variant="outline" 
+                              className="h-7 text-xs font-bold border-amber-400 bg-white dark:bg-slate-900"
+                              onClick={() => {
+                                setEditingProduct(dup);
+                                setFormName(dup.name || '');
+                                setFormBarcode(dup.barcode || '');
+                              }}
+                            >
+                              تعديل هذه المادة بدلاً من الإضافة
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>الماركة</Label>
+                    <Input name="brand" defaultValue={editingProduct?.brand} />
+                  </div>
                     <div className="space-y-2">
-                      <Label>الباركود</Label>
-                      <Input name="barcode" defaultValue={editingProduct?.barcode} />
+                      <Label>الحد الأدنى للمخزون</Label>
+                      <Input name="minStockLevel" type="number" defaultValue={editingProduct?.minStockLevel || 5} />
                     </div>
                     <div className="space-y-2">
                       <Label>سعر الشراء</Label>
@@ -138,6 +247,18 @@ export default function ProductsManagementPage() {
                     <div className="space-y-2">
                       <Label>سعر البيع</Label>
                       <Input name="retailPrice" type="number" defaultValue={editingProduct?.retailPrice} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>سعر الجملة</Label>
+                      <Input name="wholesalePrice" type="number" defaultValue={editingProduct?.wholesalePrice} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>سعر الوكيل</Label>
+                      <Input name="agentPrice" type="number" defaultValue={editingProduct?.agentPrice} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>الوحدة</Label>
+                      <Input name="unit" defaultValue={editingProduct?.unit || "قطعة"} />
                     </div>
                     <div className="space-y-2">
                       <Label>الكمية</Label>
@@ -178,8 +299,17 @@ export default function ProductsManagementPage() {
                 <TableCell className="font-black">{p.stockQuantity} قطعة</TableCell>
                 <TableCell className="text-left px-6">
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => {setEditingProduct(p); setIsDialogOpen(true);}}><Edit2 className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                    <Link href={`/admin/products/barcode?productId=${p.id}`}>
+                      <Button variant="ghost" size="icon" title="طباعة ملصق باركود">
+                        <Barcode className="h-4 w-4 text-primary" />
+                      </Button>
+                    </Link>
+                    <Button variant="ghost" size="icon" title="تعديل المادة" onClick={() => openEditDialog(p)}>
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-destructive" title="حذف" onClick={() => handleDelete(p.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>

@@ -16,14 +16,20 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
   } | null>(null);
 
   useEffect(() => {
-    const initialized = initializeFirebase();
-    setFirebase(initialized);
+    try {
+      const initialized = initializeFirebase();
+      setFirebase(initialized);
+    } catch (e) {
+      console.warn("Firebase initialization warning:", e);
+    }
   }, []);
 
-  if (!firebase) return null;
-
   return (
-    <FirebaseProvider app={firebase.app} firestore={firebase.firestore} auth={firebase.auth}>
+    <FirebaseProvider 
+      app={firebase?.app || (null as any)} 
+      firestore={firebase?.firestore || (null as any)} 
+      auth={firebase?.auth || (null as any)}
+    >
       {children}
     </FirebaseProvider>
   );

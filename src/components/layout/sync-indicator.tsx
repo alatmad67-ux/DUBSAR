@@ -29,16 +29,16 @@ export function SyncIndicator() {
             {status === 'syncing' && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
             
             <span className="hidden sm:inline">
-              {status === 'online' ? 'متصل ومحمي' : status === 'offline' ? 'وضع الأوفلاين' : 'جاري المزامنة...'}
+              {status === 'online' ? 'متصل ومحمي' : status === 'offline' ? 'النظام نشط ومستقر' : 'جاري المزامنة...'}
             </span>
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="rounded-xl border-none shadow-2xl p-4 space-y-1">
-          <p className="font-black text-xs">حالة النظام السحابي</p>
+          <p className="font-black text-xs">حالة النظام</p>
           <p className="text-[10px] text-muted-foreground font-bold">
             {status === 'offline' 
-              ? 'أنت تعمل حالياً بدون إنترنت. سيتم حفظ كافة العمليات محلياً ومزامنتها فور عودة الاتصال.' 
-              : 'البيانات مؤمنة ومزامنة مع السيرفر الرئيسي.'}
+              ? 'أنت تعمل على النسخة المحلية المستقرة. كافة بياناتك وفواتيرك محفوظة ومؤمنة في جهازك.' 
+              : 'البيانات مؤمنة ومحدثة بشكل فوري.'}
           </p>
           {lastSync && (
             <div className="flex items-center gap-1.5 pt-2 text-[10px] text-green-600 font-black">

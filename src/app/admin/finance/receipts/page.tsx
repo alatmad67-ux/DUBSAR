@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   Plus, 
   Search, 
@@ -11,7 +10,8 @@ import {
   Calendar, 
   Printer,
   Loader2,
-  Filter
+  Filter,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,215 +32,381 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useFirestore, useCollection, useUser } from "@/firebase";
-import { collection, query, orderBy, addDoc, doc, writeBatch, increment, where } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
+import { InventoryService } from "@/services/inventory-service";
+import { PrintEngine } from "@/services/print-engine";
+import { Badge } from "@/components/ui/badge";
 
 export default function ReceiptVouchersPage() {
-  const db = useFirestore();
-  const { profile, tenantId } = useUser();
-  const router = useRouter();
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [vouchers, setVouchers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [amountInput, setAmountInput] = useState<string>("");
+  const [currentUser, setCurrentUser] = useState<any>({});
 
-  // FIXED: Server-side tenant filtering for receipt vouchers
-  const vouchersQuery = useMemo(() => query(
-    collection(db, 'receiptVouchers'), 
-    where('tenantId', '==', tenantId),
-    orderBy('timestamp', 'desc')
-  ), [db, tenantId]);
-  const { data: vouchers, loading } = useCollection(vouchersQuery);
+  useEffect(() => {
+    try {
+      const sessionStr = localStorage.getItem('dubsar_session');
+      if (sessionStr) setCurrentUser(JSON.parse(sessionStr));
+    } catch {
+      setCurrentUser({});
+    }
+    loadData();
+  }, []);
 
-  // FIXED: Server-side tenant filtering for users (customers) selection
-  const usersQuery = useMemo(() => query(
-    collection(db, 'users'),
-    where('tenantId', '==', tenantId)
-  ), [db, tenantId]);
-  const { data: users } = useCollection(usersQuery);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [customerRows] = await Promise.all([
+        InventoryService.getCustomers()
+      ]);
+      setCustomers(Array.isArray(customerRows) ? customerRows : []);
 
-  const filtered = vouchers.filter((v: any) => 
-    v.customerName?.toLowerCase().includes(search.toLowerCase()) || 
-    v.voucherNumber?.includes(search)
-  );
+      const savedVouchers = localStorage.getItem('dubsar_receipt_vouchers');
+      if (savedVouchers) {
+        setVouchers(JSON.parse(savedVouchers));
+      } else {
+        setVouchers([]);
+      }
+    } catch (e) {
+      console.error("Failed to load receipt vouchers data:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedCustomer = useMemo(() => {
+    return customers.find(c => String(c.id) === String(selectedCustomerId));
+  }, [customers, selectedCustomerId]);
+
+  const filtered = useMemo(() => {
+    return vouchers.filter((v: any) => 
+      (v.customerName?.toLowerCase() || "").includes(search.toLowerCase()) || 
+      (v.voucherNumber || "").includes(search)
+    );
+  }, [vouchers, search]);
 
   const handleAddVoucher = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!selectedCustomerId || !selectedCustomer) {
+      toast({ variant: "destructive", title: "تنبيه", description: "يرجى اختيار العميل أولاً." });
+      return;
+    }
+
+    const amount = Number(amountInput);
+    if (!amount || amount <= 0) {
+      toast({ variant: "destructive", title: "تنبيه", description: "يرجى إدخال مبلغ صحيح." });
+      return;
+    }
+
     setIsSaving(true);
     const formData = new FormData(e.currentTarget);
-    const userId = formData.get('userId') as string;
-    const amount = Number(formData.get('amount'));
-    const customer = users.find(u => u.id === userId);
+    const paymentMethod = String(formData.get('method') || 'cash');
+    const notes = String(formData.get('notes') || '').trim();
 
     try {
-      const batch = writeBatch(db);
+      const currentBalance = Number(selectedCustomer.balance) || 0;
+      const newBalance = Math.max(0, currentBalance - amount);
+
+      // 1. Update customer balance in SQLite
+      await InventoryService.updateCustomer(
+        selectedCustomer.id,
+        { ...selectedCustomer, balance: newBalance },
+        currentUser
+      );
+
+      // 2. Create voucher record
       const voucherNumber = `RV-${Date.now().toString().slice(-6)}`;
-      const voucherData = {
-        tenantId,
+      const newVoucher = {
+        id: `rv_${Date.now()}`,
         voucherNumber,
-        userId,
-        customerName: customer?.displayName || "غير معروف",
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name || "غير معروف",
+        customerPhone: selectedCustomer.phone || "",
         amount,
-        paymentMethod: formData.get('method'),
-        notes: formData.get('notes'),
-        employeeId: profile?.uid,
-        employeeName: profile?.displayName,
-        timestamp: Date.now()
+        paymentMethod,
+        notes,
+        employeeName: currentUser?.displayName || currentUser?.username || 'المسؤول',
+        timestamp: Date.now(),
+        previousBalance: currentBalance,
+        currentBalance: newBalance
       };
 
-      const voucherRef = doc(collection(db, 'receiptVouchers'));
-      batch.set(voucherRef, voucherData);
+      const updatedVouchers = [newVoucher, ...vouchers];
+      setVouchers(updatedVouchers);
+      localStorage.setItem('dubsar_receipt_vouchers', JSON.stringify(updatedVouchers));
 
-      const userRef = doc(db, 'users', userId);
-      batch.update(userRef, {
-        currentBalance: increment(-amount),
-        totalPaid: increment(amount),
-        lastPaymentDate: Date.now()
-      });
-
-      const transactionRef = doc(collection(db, "financialTransactions"));
-      batch.set(transactionRef, {
-        tenantId,
-        userId,
-        type: 'payment',
-        amount: -amount,
-        referenceId: voucherRef.id,
-        description: `وصل قبض رقم ${voucherNumber}`,
-        timestamp: Date.now()
-      });
-
-      await batch.commit();
       setIsAddOpen(false);
-      toast({ title: "تم الحفظ", description: "تم تسجيل وصل القبض وتحديث حساب العميل." });
-      router.push(`/admin/print/receipt/${voucherRef.id}?size=80mm`);
-    } catch (e) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل حفظ الوصل." });
+      setSelectedCustomerId("");
+      setAmountInput("");
+      toast({ title: "تم الحفظ بنجاح", description: `تم تسجيل سند القبض رقم ${voucherNumber} وتحديث حساب العميل.` });
+
+      // 3. Print thermal receipt directly
+      try {
+        const appSettings = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
+        await PrintEngine.printVoucher({
+          voucherNo: voucherNumber,
+          type: 'receipt',
+          date: new Date().toLocaleDateString('ar-IQ'),
+          time: new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' }),
+          partyName: selectedCustomer.name,
+          partyPhone: selectedCustomer.phone,
+          amount,
+          paymentMethod,
+          notes,
+          employeeName: currentUser?.displayName || currentUser?.username || 'المسؤول',
+          currentBalance: newBalance,
+          businessSettings: appSettings
+        }, '80mm');
+      } catch (printErr) {
+        console.error('Print voucher failed:', printErr);
+      }
+
+      await loadData();
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "خطأ", description: e?.message || "فشل حفظ السند." });
     } finally {
       setIsSaving(false);
     }
   };
 
+  const handlePrintExisting = async (voucher: any, format: '80mm' | 'A4') => {
+    try {
+      const appSettings = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
+      await PrintEngine.printVoucher({
+        voucherNo: voucher.voucherNumber,
+        type: 'receipt',
+        date: new Date(voucher.timestamp).toLocaleDateString('ar-IQ'),
+        time: new Date(voucher.timestamp).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' }),
+        partyName: voucher.customerName,
+        partyPhone: voucher.customerPhone,
+        amount: voucher.amount,
+        paymentMethod: voucher.paymentMethod,
+        notes: voucher.notes,
+        employeeName: voucher.employeeName,
+        currentBalance: voucher.currentBalance,
+        businessSettings: appSettings
+      }, format);
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "خطأ في الطباعة" });
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 animate-in fade-in duration-300 select-none" dir="rtl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border shadow-sm">
         <div>
-          <h1 className="text-3xl font-black">وصلات القبض</h1>
-          <p className="text-muted-foreground font-medium">إدارة مبالغ الديون المستلمة من العملاء.</p>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <Receipt className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black">سندات القبض (القبوضات)</h1>
+              <p className="text-muted-foreground text-xs font-bold mt-0.5">تسجيل الدفعات النقدية والتحويلات المستلمة من الزبائن وتخفيض ديونهم</p>
+            </div>
+          </div>
         </div>
         
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
-            <Button className="rounded-xl h-11 font-bold gap-2 shadow-lg">
-              <Plus className="h-5 w-5" /> إنشاء وصل قبض
+            <Button className="rounded-xl h-11 px-5 font-bold gap-2 shadow-sm">
+              <Plus className="h-5 w-5" /> إنشاء سند قبض جديد
             </Button>
           </DialogTrigger>
-          <DialogContent className="rounded-[32px] max-w-lg">
-            <DialogHeader><DialogTitle className="text-2xl font-black">وصل قبض جديد</DialogTitle></DialogHeader>
-            <form onSubmit={handleAddVoucher} className="space-y-5 pt-4">
-               <div className="space-y-2">
-                 <Label className="font-bold">العميل</Label>
-                 <Select name="userId" required>
-                    <SelectTrigger className="rounded-xl h-12 bg-muted/20 border-none">
-                       <SelectValue placeholder="اختر العميل" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl">
-                       {users.filter(u => u.currentBalance > 0).map((u: any) => (
-                          <SelectItem key={u.id} value={u.id} className="rounded-xl">
-                             {u.displayName} (ذمة: {u.currentBalance?.toLocaleString()} د.ع)
-                          </SelectItem>
-                       ))}
-                    </SelectContent>
-                 </Select>
-               </div>
-               <div className="space-y-2">
-                 <Label className="font-bold">المبلغ المستلم</Label>
-                 <Input name="amount" type="number" required placeholder="0.00" className="rounded-xl h-12 bg-muted/20 border-none" />
-               </div>
-               <div className="space-y-2">
-                  <Label className="font-bold">طريقة الدفع</Label>
-                  <Select name="method" defaultValue="cash">
-                    <SelectTrigger className="rounded-xl h-12 bg-muted/20 border-none">
-                      <SelectValue placeholder="اختر الطريقة" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl">
-                       <SelectItem value="cash">نقداً</SelectItem>
-                       <SelectItem value="transfer">تحويل</SelectItem>
-                       <SelectItem value="check">صك</SelectItem>
-                    </SelectContent>
-                  </Select>
-               </div>
-               <div className="space-y-2">
-                 <Label className="font-bold">ملاحظات</Label>
-                 <Input name="notes" placeholder="اختياري..." className="rounded-xl h-12 bg-muted/20 border-none" />
-               </div>
-               <DialogFooter>
-                 <Button type="submit" disabled={isSaving} className="w-full h-14 rounded-2xl font-black text-lg">
-                   {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : "حفظ وطباعة الوصل"}
-                 </Button>
-               </DialogFooter>
+          <DialogContent className="rounded-[28px] max-w-lg p-0 overflow-hidden border shadow-2xl" dir="rtl">
+            <DialogHeader className="p-6 bg-slate-900 text-white">
+              <DialogTitle className="text-xl font-black flex items-center gap-2">
+                <Receipt className="h-5 w-5 text-primary" />
+                <span>إنشاء سند قبض جديد</span>
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleAddVoucher} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label className="font-bold text-xs">اختيار العميل / الزبون <span className="text-rose-500">*</span></Label>
+                <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId} required>
+                  <SelectTrigger className="rounded-xl h-12 border bg-muted/20">
+                    <SelectValue placeholder="اختر الزبون من القائمة..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl max-h-64">
+                    {customers.length > 0 ? (
+                      customers.map((c: any) => (
+                        <SelectItem key={c.id} value={String(c.id)} className="rounded-xl font-bold py-2.5">
+                          <div className="flex justify-between items-center gap-3 w-full">
+                            <span>{c.name} {c.phone ? `(${c.phone})` : ''}</span>
+                            <span className={`text-xs font-mono font-black ${(Number(c.balance) || 0) > 0 ? 'text-rose-600' : 'text-muted-foreground'}`}>
+                              الذمة: {(Number(c.balance) || 0).toLocaleString()} د.ع
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-xs text-muted-foreground font-bold">لا يوجد زبائن مسجلين حالياً</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedCustomer && (
+                <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-muted-foreground font-bold block">الرصيد المستحق الحالي بذمة العميل:</span>
+                    <span className="text-base font-black font-mono text-rose-600 mt-0.5 block">
+                      {(Number(selectedCustomer.balance) || 0).toLocaleString()} د.ع
+                    </span>
+                  </div>
+                  {(Number(selectedCustomer.balance) || 0) > 0 && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setAmountInput(String(selectedCustomer.balance || 0))}
+                      className="text-xs font-bold rounded-lg h-8"
+                    >
+                      تسديد كامل المبلغ
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="font-bold text-xs">المبلغ المستلم (د.ع) <span className="text-rose-500">*</span></Label>
+                <Input 
+                  name="amount" 
+                  type="number" 
+                  required 
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
+                  placeholder="0" 
+                  className="rounded-xl h-12 text-lg font-black font-mono bg-muted/20" 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold text-xs">طريقة القبض</Label>
+                <Select name="method" defaultValue="cash">
+                  <SelectTrigger className="rounded-xl h-12 bg-muted/20">
+                    <SelectValue placeholder="اختر الطريقة" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="cash" className="rounded-xl font-bold">نقداً (كاش)</SelectItem>
+                    <SelectItem value="transfer" className="rounded-xl font-bold">تحويل بنكي / إلكتروني</SelectItem>
+                    <SelectItem value="check" className="rounded-xl font-bold">صك مصرفي</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold text-xs">البيان / ملاحظات</Label>
+                <Input name="notes" placeholder="تسديد دفعة من حساب سابق..." className="rounded-xl h-12 bg-muted/20" />
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button type="submit" disabled={isSaving} className="w-full h-12 rounded-xl font-black text-sm">
+                  {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : "حفظ وطباعة السند"}
+                </Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* Search Bar */}
       <div className="flex gap-4">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="بحث برقم الوصل أو اسم العميل..." 
-            className="h-12 rounded-xl pr-10 border-none shadow-sm bg-white"
+            placeholder="بحث برقم السند أو اسم العميل..." 
+            className="h-11 rounded-xl pr-10 border shadow-sm bg-card font-bold text-xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="rounded-[32px] overflow-hidden bg-white shadow-sm border">
+      {/* Table */}
+      <div className="rounded-2xl overflow-hidden bg-card shadow-sm border">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="text-right py-5 px-6">رقم الوصل</TableHead>
-              <TableHead className="text-right">العميل</TableHead>
-              <TableHead className="text-right">المبلغ</TableHead>
-              <TableHead className="text-right">التاريخ</TableHead>
-              <TableHead className="text-right">الموظف</TableHead>
-              <TableHead className="text-left px-6">إجراءات</TableHead>
+            <TableRow className="bg-muted/40 font-black">
+              <TableHead className="text-right py-4 px-6 text-xs font-black">رقم السند</TableHead>
+              <TableHead className="text-right text-xs font-black">اسم العميل</TableHead>
+              <TableHead className="text-left text-xs font-black">المبلغ المقبوض</TableHead>
+              <TableHead className="text-center text-xs font-black">طريقة الدفع</TableHead>
+              <TableHead className="text-right text-xs font-black">التاريخ والوقت</TableHead>
+              <TableHead className="text-right text-xs font-black">المسؤول</TableHead>
+              <TableHead className="text-center px-6 text-xs font-black">طباعة</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              Array(5).fill(0).map((_, i) => (
+              Array(4).fill(0).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell className="px-6"><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell className="px-6 text-left"><Skeleton className="h-8 w-8 rounded-lg" /></TableCell>
+                  <TableCell className="px-6 text-center"><Skeleton className="h-8 w-16 rounded-lg mx-auto" /></TableCell>
                 </TableRow>
               ))
             ) : filtered.length > 0 ? (
               filtered.map((v: any) => (
-                <TableRow key={v.id} className="hover:bg-muted/5 transition-colors">
-                  <TableCell className="font-black text-sm px-6">{v.voucherNumber}</TableCell>
-                  <TableCell className="font-bold">{v.customerName}</TableCell>
-                  <TableCell className="font-black text-green-600">{v.amount?.toLocaleString()} د.ع</TableCell>
-                  <TableCell className="text-muted-foreground text-xs font-bold">
-                    {new Date(v.timestamp).toLocaleString("ar-EG")}
+                <TableRow key={v.id} className="hover:bg-muted/10 font-bold transition-colors">
+                  <TableCell className="font-mono text-primary font-black text-xs px-6">{v.voucherNumber}</TableCell>
+                  <TableCell className="text-xs">{v.customerName}</TableCell>
+                  <TableCell className="font-mono text-emerald-600 font-black text-left text-xs">
+                    {Number(v.amount || 0).toLocaleString()} د.ع
                   </TableCell>
-                  <TableCell className="text-xs font-medium">{v.employeeName}</TableCell>
-                  <TableCell className="text-left px-6">
-                    <Button variant="ghost" size="icon" className="rounded-xl text-primary" onClick={() => router.push(`/admin/print/receipt/${v.id}?size=80mm`)}>
-                      <Printer className="h-4 w-4" />
-                    </Button>
+                  <TableCell className="text-center">
+                    <Badge variant="secondary" className="text-[11px] font-bold">
+                      {v.paymentMethod === 'cash' ? 'نقداً' : v.paymentMethod === 'transfer' ? 'تحويل' : v.paymentMethod === 'check' ? 'صك' : v.paymentMethod}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs font-mono">
+                    {new Date(v.timestamp).toLocaleString("ar-IQ")}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{v.employeeName || 'المسؤول'}</TableCell>
+                  <TableCell className="text-center px-6">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 rounded-lg gap-1 text-[11px] font-bold" 
+                        onClick={() => handlePrintExisting(v, '80mm')}
+                        title="طباعة إيصال كاشير 80mm"
+                      >
+                        <Printer className="h-3.5 w-3.5 text-primary" />
+                        <span>80mm</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 rounded-lg gap-1 text-[11px] font-bold" 
+                        onClick={() => handlePrintExisting(v, 'A4')}
+                        title="طباعة سند رسمي A4"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-slate-700" />
+                        <span>A4</span>
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-10 opacity-30 font-bold">لا يوجد وصلات قبض حالياً.</TableCell>
+                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-xs font-bold">
+                  لا توجد سندات قبض مسجلة حتى الآن.
+                </TableCell>
               </TableRow>
             )}
           </TableBody>

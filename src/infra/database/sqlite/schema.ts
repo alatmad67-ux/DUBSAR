@@ -10,6 +10,7 @@ export const categories = sqliteTable('categories', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   imageUrl: text('image_url'),
+  active: integer('active', { mode: 'boolean' }).default(1),
   createdAt: integer('created_at').notNull(),
 });
 
@@ -23,12 +24,16 @@ export const products = sqliteTable('products', {
   purchasePrice: real('purchase_price').default(0),
   retailPrice: real('retail_price').default(0),
   wholesalePrice: real('wholesale_price').default(0),
+  agentPrice: real('agent_price').default(0),
+  unit: text('unit'),
+  brand: text('brand'),
   stockQuantity: integer('stock_quantity').default(0),
   minStockLevel: integer('min_stock_level').default(5),
   storageLocation: text('storage_location'),
   imageUrl: text('image_url'),
   isFeatured: integer('is_featured', { mode: 'boolean' }).default(0),
   status: text('status').default('available'),
+  active: integer('active', { mode: 'boolean' }).default(1),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });
@@ -52,6 +57,15 @@ export const suppliers = sqliteTable('suppliers', {
   createdAt: integer('created_at').notNull(),
 });
 
+export const purchases = sqliteTable('purchases', {
+  id: text('id').primaryKey(),
+  purchaseNo: text('purchase_no').unique().notNull(),
+  supplierId: text('supplier_id').references(() => suppliers.id).notNull(),
+  totalAmount: real('total_amount').notNull(),
+  paidAmount: real('paid_amount').default(0),
+  createdAt: integer('created_at').notNull(),
+});
+
 // 3. المبيعات والمشتريات
 export const sales = sqliteTable('sales', {
   id: text('id').primaryKey(),
@@ -62,6 +76,9 @@ export const sales = sqliteTable('sales', {
   paymentMethod: text('payment_method'), // cash, credit
   createdBy: text('created_by'), // local user id
   createdAt: integer('created_at').notNull(),
+  priceType: text('price_type').default('retail'),
+  paymentStatus: text('payment_status').default('paid'),
+  discountAmount: real('discount_amount').default(0),
 });
 
 export const saleItems = sqliteTable('sale_items', {
@@ -71,6 +88,7 @@ export const saleItems = sqliteTable('sale_items', {
   quantity: integer('quantity').notNull(),
   unitPrice: real('unit_price').notNull(),
   totalPrice: real('total_price').notNull(),
+  priceType: text('price_type').default('retail'),
 });
 
 // 4. المستخدمين والصلاحيات (Local Auth)
@@ -103,4 +121,6 @@ export const appSettings = sqliteTable('app_settings', {
   logo: text('logo'),
   phone: text('phone'),
   address: text('address'),
+  businessType: text('business_type'),
+  invoiceHeaderImage: text('invoice_header_image'),
 });

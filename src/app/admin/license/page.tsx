@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from "react";
@@ -7,19 +6,19 @@ import {
   ShieldAlert, 
   Key, 
   Laptop, 
-  History, 
+  Calendar, 
   CheckCircle2, 
-  HelpCircle,
-  Loader2,
+  Building2,
   RefreshCw,
-  Rocket,
-  Zap,
-  Globe
+  LogOut,
+  Sparkles,
+  Lock,
+  Copy,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { LicenseManager, LicenseStatus } from "@/core/license/license-manager";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -27,8 +26,7 @@ import { cn } from "@/lib/utils";
 export default function LicensePage() {
   const [status, setStatus] = useState<LicenseStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activating, setActivating] = useState(false);
-  const [licenseKey, setLicenseKey] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     checkLicense();
@@ -36,136 +34,230 @@ export default function LicensePage() {
 
   const checkLicense = async () => {
     setLoading(true);
-    const result = await LicenseManager.verifyStatus();
-    setStatus(result);
-    setLoading(false);
-  };
-
-  const handleActivate = async () => {
-    if (!licenseKey) return;
-    setActivating(true);
     try {
-      const success = await LicenseManager.activate(licenseKey);
-      if (success) {
-        toast({ title: "تم التفعيل بنجاح", description: "أهلاً بك في DUBSAR 2.0 Professional" });
-        await checkLicense();
-      }
-    } catch (e) {
-      toast({ variant: "destructive", title: "فشل التفعيل", description: "المفتاح غير صحيح أو مستخدم مسبقاً." });
+      const result = await LicenseManager.verifyStatus();
+      setStatus(result);
     } finally {
-      setActivating(false);
+      setLoading(false);
     }
   };
 
-  if (loading) return <div className="p-20 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto opacity-20" /></div>;
+  const handleCopyDeviceId = () => {
+    if (status?.currentDeviceId) {
+      navigator.clipboard.writeText(status.currentDeviceId);
+      setCopied(true);
+      toast({ title: "تم نسخ معرف الجهاز بنجاح" });
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleDeactivate = () => {
+    if (confirm("هل أنت متأكد من رغبتك في إلغاء تفعيل هذا الترخيص على هذا الجهاز؟ سيتوقف البرنامج عن العمل حتى يتم تفعيله مجدداً.")) {
+      LicenseManager.deactivate();
+      toast({ title: "تم إلغاء تفعيل الترخيص" });
+      window.location.reload();
+    }
+  };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20" dir="rtl">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-black text-slate-900">ترخيص البرنامج (DUBSAR 2.0)</h1>
-        <p className="text-muted-foreground font-medium">إدارة ملكية النسخة، تحديثات الأمان، والدعم الفني المباشر.</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-           {/* Current License Status */}
-           <Card className={cn(
-             "rounded-[40px] border-none shadow-sm overflow-hidden",
-             status?.isValid ? "bg-emerald-50" : "bg-red-50"
-           )}>
-              <CardHeader className="p-10 border-b border-black/5 bg-white/50">
-                 <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                       <CardTitle className="text-2xl font-black">
-                          {status?.isValid ? 'النسخة مرخصة ومفعلة' : 'النسخة غير مفعلة (تجريبية)'}
-                       </CardTitle>
-                       <CardDescription className="font-bold">
-                          {status?.isValid ? `باقة: ${status.type?.toUpperCase()}` : 'يرجى إدخال مفتاح الترخيص للبدء.'}
-                       </CardDescription>
-                    </div>
-                    <div className={cn(
-                      "h-16 w-16 rounded-3xl flex items-center justify-center shadow-lg",
-                      status?.isValid ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
-                    )}>
-                       {status?.isValid ? <ShieldCheck className="h-8 w-8" /> : <ShieldAlert className="h-8 w-8" />}
-                    </div>
-                 </div>
-              </CardHeader>
-              <CardContent className="p-10 space-y-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-2">
-                       <p className="text-[10px] font-black uppercase opacity-40">معرف الجهاز (Hardware ID)</p>
-                       <p className="font-mono text-sm font-bold bg-white/50 p-3 rounded-xl border border-black/5">DB-20-X99-PRO-8821</p>
-                    </div>
-                    <div className="space-y-2">
-                       <p className="text-[10px] font-black uppercase opacity-40">تاريخ التفعيل</p>
-                       <p className="font-bold text-sm">{status?.activatedAt ? new Date(status.activatedAt).toLocaleDateString("ar-EG") : '---'}</p>
-                    </div>
-                 </div>
-
-                 {status?.isValid && (
-                   <div className="flex flex-wrap gap-3">
-                      {['تحديثات دائمة', 'دعم فني 24/7', 'ربط سحابي مجاني', 'مخزن محلي غير محدود'].map(f => (
-                        <div key={f} className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/60 text-emerald-700 text-xs font-black border border-emerald-100">
-                           <CheckCircle2 className="h-4 w-4" />
-                           {f}
-                        </div>
-                      ))}
-                   </div>
-                 )}
-              </CardContent>
-           </Card>
-
-           {/* Activation Card */}
-           {!status?.isValid && (
-             <Card className="rounded-[40px] border-none shadow-xl bg-white overflow-hidden">
-                <CardHeader className="bg-slate-900 text-white p-10">
-                   <CardTitle className="text-xl font-black flex items-center gap-3"><Key className="h-6 w-6 text-primary" /> تفعيل البرنامج</CardTitle>
-                </CardHeader>
-                <CardContent className="p-10 space-y-6">
-                   <div className="space-y-3">
-                      <Label className="font-black text-xs uppercase tracking-widest opacity-60">مفتاح الترخيص (License Key)</Label>
-                      <Input 
-                        value={licenseKey}
-                        onChange={(e) => setLicenseKey(e.target.value)}
-                        placeholder="XXXXX-XXXXX-XXXXX-XXXXX" 
-                        className="h-16 rounded-2xl bg-muted/30 border-none font-mono text-xl text-center tracking-[0.2em]" 
-                      />
-                   </div>
-                   <Button 
-                    disabled={!licenseKey || activating} 
-                    onClick={handleActivate}
-                    className="w-full h-16 rounded-[24px] font-black text-xl gap-3 shadow-2xl shadow-primary/20"
-                   >
-                      {activating ? <Loader2 className="h-6 w-6 animate-spin" /> : <Rocket className="h-6 w-6" />}
-                      تفعيل النسخة الآن
-                   </Button>
-                </CardContent>
-             </Card>
-           )}
+    <div className="space-y-6 animate-in fade-in duration-300 select-none pb-16" dir="rtl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+            <Lock className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-foreground">بيانات ورخصة البرنامج (DUBSAR Lifetime)</h1>
+            <p className="text-muted-foreground text-xs font-bold mt-0.5">
+              تفاصيل ملكية النسخة، القيود الرقمية، ومعرف الجهاز المرتبط بالترخيص الدائم
+            </p>
+          </div>
         </div>
 
-        <div className="space-y-8">
-           <Card className="rounded-[40px] border-none shadow-xl bg-slate-900 text-white p-10 overflow-hidden relative group">
-              <div className="relative z-10 space-y-6">
-                 <div className="h-16 w-16 bg-primary rounded-3xl flex items-center justify-center shadow-lg group-hover:rotate-12 transition-all">
-                    <Zap className="h-8 w-8 text-white" />
-                 </div>
-                 <div className="space-y-2">
-                    <h3 className="text-2xl font-black italic">نظام الترخيص الدائم</h3>
-                    <p className="text-sm text-slate-400 font-medium leading-relaxed">
-                       في DUBSAR 2.0، أنت تملك البرنامج. الترخيص لمرة واحدة فقط وبدون اشتراكات شهرية إجبارية للعمليات المحلية.
-                    </p>
-                 </div>
-              </div>
-           </Card>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={checkLicense} 
+            disabled={loading}
+            className="h-10 rounded-xl font-bold gap-1.5"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            <span>إعادة التحقق الرقمي</span>
+          </Button>
+        </div>
+      </div>
 
-           <Card className="rounded-[40px] border-none shadow-sm bg-white p-8 space-y-6">
-              <h3 className="font-black text-lg flex items-center gap-2 text-slate-800"><History className="h-5 w-5 text-primary" /> سجل التراخيص</h3>
-              <div className="space-y-4">
-                 <p className="text-center text-xs opacity-30 font-bold py-10">لا توجد عمليات سابقة لتظهر هنا.</p>
+      {/* Main License Card */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card className={cn(
+            "rounded-[28px] border-2 shadow-sm overflow-hidden",
+            status?.isValid ? "border-emerald-500/30 bg-card" : "border-rose-500/30 bg-card"
+          )}>
+            <CardHeader className={cn(
+              "p-6 border-b flex flex-row items-center justify-between",
+              status?.isValid ? "bg-emerald-500/5" : "bg-rose-500/5"
+            )}>
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "h-12 w-12 rounded-2xl flex items-center justify-center shadow-sm",
+                  status?.isValid ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"
+                )}>
+                  {status?.isValid ? <ShieldCheck className="h-6 w-6" /> : <ShieldAlert className="h-6 w-6" />}
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-black">
+                    {status?.isValid ? "الترخيص مفعل وساري المفعول" : "الترخيص غير صالح أو غير مفعل"}
+                  </CardTitle>
+                  <CardDescription className="text-xs font-bold mt-0.5">
+                    {status?.isValid ? "تم التحقق من التوقيع الرقمي للرخصة وتطابق معرف الجهاز" : (status?.errorMessage || "يرجى تفعيل النسخة")}
+                  </CardDescription>
+                </div>
               </div>
-           </Card>
+
+              <Badge className={cn(
+                "px-3 py-1 font-bold text-xs rounded-xl",
+                status?.isValid ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+              )}>
+                {status?.isValid ? "Lifetime • دائم" : "غير مفعل"}
+              </Badge>
+            </CardHeader>
+
+            <CardContent className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* Business Name */}
+                <div className="p-4 rounded-2xl bg-muted/30 border space-y-1">
+                  <span className="text-muted-foreground text-[11px] font-bold flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5 text-primary" />
+                    اسم النشاط / المؤسسة المرخصة:
+                  </span>
+                  <p className="text-base font-black text-foreground">
+                    {status?.businessName || "غير محدد"}
+                  </p>
+                </div>
+
+                {/* Plan Type */}
+                <div className="p-4 rounded-2xl bg-muted/30 border space-y-1">
+                  <span className="text-muted-foreground text-[11px] font-bold flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    نوع وخطة الترخيص:
+                  </span>
+                  <p className="text-base font-black text-amber-600 dark:text-amber-400 font-mono">
+                    DUBSAR Lifetime (شراء دائم لمرة واحدة)
+                  </p>
+                </div>
+
+                {/* License ID */}
+                <div className="p-4 rounded-2xl bg-muted/30 border space-y-1">
+                  <span className="text-muted-foreground text-[11px] font-bold flex items-center gap-1.5">
+                    <Key className="h-3.5 w-3.5 text-primary" />
+                    رقم الترخيص الرسمي (License ID):
+                  </span>
+                  <p className="text-sm font-mono font-black text-primary">
+                    {status?.licenseId || "---"}
+                  </p>
+                </div>
+
+                {/* Max Devices */}
+                <div className="p-4 rounded-2xl bg-muted/30 border space-y-1">
+                  <span className="text-muted-foreground text-[11px] font-bold flex items-center gap-1.5">
+                    <Laptop className="h-3.5 w-3.5 text-primary" />
+                    عدد الأجهزة المسموحة:
+                  </span>
+                  <p className="text-base font-black font-mono">
+                    {status?.maxDevices || 1} جهاز
+                  </p>
+                </div>
+
+                {/* Machine ID */}
+                <div className="p-4 rounded-2xl bg-muted/30 border space-y-1 md:col-span-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground text-[11px] font-bold flex items-center gap-1.5">
+                      <Laptop className="h-3.5 w-3.5 text-primary" />
+                      معرف هذا الجهاز الحالي (Hardware ID):
+                    </span>
+                    <button 
+                      onClick={handleCopyDeviceId}
+                      className="text-xs text-primary font-bold flex items-center gap-1 hover:underline"
+                    >
+                      {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                      <span>{copied ? "تم النسخ" : "نسخ المعرف"}</span>
+                    </button>
+                  </div>
+                  <p className="text-sm font-mono font-black text-foreground bg-background p-2.5 rounded-xl border mt-1">
+                    {status?.currentDeviceId || "---"}
+                  </p>
+                </div>
+
+                {/* Dates */}
+                <div className="p-4 rounded-2xl bg-muted/30 border space-y-1">
+                  <span className="text-muted-foreground text-[11px] font-bold flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                    تاريخ التفعيل على هذا الجهاز:
+                  </span>
+                  <p className="text-xs font-mono font-bold">
+                    {status?.activatedAt ? new Date(status.activatedAt).toLocaleString("ar-IQ") : "---"}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-muted/30 border space-y-1">
+                  <span className="text-muted-foreground text-[11px] font-bold flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                    تاريخ إصدار الترخيص:
+                  </span>
+                  <p className="text-xs font-mono font-bold">
+                    {status?.issuedAt ? new Date(status.issuedAt).toLocaleDateString("ar-IQ") : "---"}
+                  </p>
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar Info & Actions */}
+        <div className="space-y-6">
+          <Card className="rounded-[28px] border shadow-sm p-6 space-y-4">
+            <h3 className="font-black text-base flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500" />
+              <span>ميزات ترخيص Lifetime</span>
+            </h3>
+            <ul className="space-y-2.5 text-xs text-muted-foreground font-bold">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                <span>شراء دائم بدون اشتراكات أو فواتير شهرية</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                <span>يعمل محلياً (Offline) بالكامل دون الحاجة لاتصال</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                <span>حماية مشفرة ومقترنة بعتاد الجهاز الرسمي</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                <span>تحديثات النظام المستمرة وتطويرات DUBSAR</span>
+              </li>
+            </ul>
+
+            {status?.isValid && (
+              <div className="pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleDeactivate}
+                  className="w-full rounded-xl font-black text-xs text-rose-600 hover:bg-rose-50 border-rose-200 h-10 gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>إلغاء تفعيل الترخيص على هذا الجهاز</span>
+                </Button>
+              </div>
+            )}
+          </Card>
         </div>
       </div>
     </div>

@@ -1,131 +1,16 @@
-
 'use client';
 
-import { useState, useMemo } from "react";
-import { 
-  Plus, 
-  Search, 
-  Truck, 
-  Printer,
-  ChevronRight,
-  Filter,
-  FileText
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useFirestore, useCollection, useUser } from "@/firebase";
-import { collection, query, orderBy, where } from "firebase/firestore";
-import { Skeleton } from "@/components/ui/skeleton";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { InventoryService } from '@/services/inventory-service';
+import { toast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function PurchasesPage() {
-  const db = useFirestore();
-  const { tenantId } = useUser();
-  const router = useRouter();
-  const [search, setSearch] = useState("");
-
-  const purchasesQuery = useMemo(() => {
-    if (!tenantId) return null;
-    return query(
-      collection(db, 'purchases'), 
-      where('tenantId', '==', tenantId),
-      orderBy('timestamp', 'desc')
-    );
-  }, [db, tenantId]);
-  
-  const { data: purchases, loading } = useCollection(purchasesQuery);
-
-  const filtered = purchases.filter((p: any) => 
-    p.invoiceNumber?.toLowerCase().includes(search.toLowerCase()) || 
-    p.supplierName?.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900">فواتير الشراء والتجهيز</h1>
-          <p className="text-muted-foreground font-medium text-sm">إدخال بضاعة جديدة للمخزن وإدارة حسابات الموردين.</p>
-        </div>
-        
-        <Link href="/admin/purchases/new">
-          <Button className="rounded-xl h-12 px-8 font-black gap-2 shadow-xl shadow-primary/20">
-            <Plus className="h-6 w-6" /> فاتورة شراء جديدة
-          </Button>
-        </Link>
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input 
-            placeholder="بحث برقم الفاتورة أو اسم المورد..." 
-            className="h-14 rounded-2xl pr-12 border-none shadow-sm bg-white text-lg font-bold"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="rounded-[32px] border-none bg-white shadow-sm overflow-hidden border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="text-right py-6 px-6 font-black uppercase text-xs">رقم الفاتورة</TableHead>
-              <TableHead className="text-right font-black uppercase text-xs">المورد</TableHead>
-              <TableHead className="text-right font-black uppercase text-xs">المبلغ الكلي</TableHead>
-              <TableHead className="text-right font-black uppercase text-xs">المسدد</TableHead>
-              <TableHead className="text-right font-black uppercase text-xs">التاريخ</TableHead>
-              <TableHead className="text-left px-6 font-black uppercase text-xs">إجراءات</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array(5).fill(0).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={6} className="px-6 py-4"><Skeleton className="h-10 w-full rounded-xl" /></TableCell>
-                </TableRow>
-              ))
-            ) : filtered.length > 0 ? (
-              filtered.map((p: any) => (
-                <TableRow key={p.id} className="hover:bg-muted/5 transition-colors group">
-                  <TableCell className="font-black text-sm px-6 text-primary">{p.invoiceNumber}</TableCell>
-                  <TableCell className="font-bold">{p.supplierName}</TableCell>
-                  <TableCell className="font-black">{p.total?.toLocaleString()} د.ع</TableCell>
-                  <TableCell>
-                    <Badge variant={p.unpaidAmount === 0 ? "default" : "outline"} className={p.unpaidAmount === 0 ? "bg-green-100 text-green-700 border-none" : "text-orange-700 border-orange-200"}>
-                      {p.paidAmount?.toLocaleString()} د.ع
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-[10px] font-bold text-muted-foreground">{new Date(p.timestamp).toLocaleString("ar-EG")}</TableCell>
-                  <TableCell className="text-left px-6">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="rounded-xl text-primary"
-                        onClick={() => router.push(`/admin/print/purchase/${p.id}?size=A4`)}
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="h-64 text-center opacity-30">
-                  <Truck className="h-16 w-16 mx-auto mb-4" />
-                  <p className="font-black text-xl">لا توجد سجلات مشتريات</p>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
+  const [rows, setRows] = useState<any[]>([]); const [search, setSearch] = useState('');
+  useEffect(() => { InventoryService.getPurchases().then(setRows).catch((error) => toast({ variant: 'destructive', title: 'فشل تحميل المشتريات', description: String(error) })); }, []);
+  const filtered = useMemo(() => rows.filter((row) => `${row.purchaseNo} ${row.supplierName} ${row.warehouseName}`.toLowerCase().includes(search.toLowerCase())), [rows, search]);
+  return <div className="space-y-6" dir="rtl"><div className="flex items-end justify-between"><div><h1 className="text-3xl font-black">فواتير الشراء</h1><p className="text-sm font-bold text-muted-foreground">فواتير محلية مرتبطة بالمخزون وذمم الموردين</p></div><Link href="/admin/purchases/new"><Button className="gap-2 font-black"><Plus className="h-4 w-4" />فاتورة شراء جديدة</Button></Link></div><div className="relative max-w-lg"><Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4" /><Input className="pr-10" placeholder="بحث برقم الفاتورة أو المورد أو المستودع" value={search} onChange={(event) => setSearch(event.target.value)} /></div><div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full text-sm"><thead className="bg-muted/40"><tr><th className="p-4 text-right">رقم الفاتورة</th><th className="p-4 text-right">المورد</th><th className="p-4 text-right">المستودع</th><th className="p-4 text-right">الإجمالي</th><th className="p-4 text-right">الدفع</th><th className="p-4 text-right">التاريخ</th></tr></thead><tbody>{filtered.map((row) => <tr key={row.id} className="border-t"><td className="p-4 font-black text-primary">{row.purchaseNo}</td><td className="p-4">{row.supplierName}</td><td className="p-4">{row.warehouseName}</td><td className="p-4 font-black">{Number(row.totalAmount).toLocaleString()} د.ع</td><td className="p-4">{row.paymentStatus === 'paid' ? 'نقدي' : 'آجل'}</td><td className="p-4 text-xs">{new Date(row.createdAt).toLocaleString('ar-IQ')}</td></tr>)}</tbody></table>{!filtered.length && <div className="p-10 text-center text-muted-foreground">لا توجد فواتير شراء</div>}</div></div>;
 }

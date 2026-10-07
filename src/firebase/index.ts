@@ -20,34 +20,46 @@ const DATABASE_ID = 'saas-prod';
 
 export function initializeFirebase() {
   if (typeof window !== 'undefined') {
-    if (!cachedApp) {
-      const existingApps = getApps();
-      cachedApp = existingApps.length ? existingApps[0] : initializeApp(firebaseConfig);
-      
-      // الربط الصريح بقاعدة البيانات saas-prod والمشروع الجديد
-      cachedFirestore = getFirestore(cachedApp, DATABASE_ID);
-      cachedAuth = getAuth(cachedApp);
-      cachedStorage = getStorage(cachedApp);
+    try {
+      if (!cachedApp) {
+        const existingApps = getApps();
+        cachedApp = existingApps.length ? existingApps[0] : initializeApp(firebaseConfig);
+        
+        try {
+          cachedFirestore = getFirestore(cachedApp, DATABASE_ID);
+        } catch {
+          cachedFirestore = getFirestore(cachedApp);
+        }
+        cachedAuth = getAuth(cachedApp);
+        cachedStorage = getStorage(cachedApp);
 
-      console.log(`[Firebase Init] Project: ${firebaseConfig.projectId}, DB: ${DATABASE_ID}`);
+        console.log(`[Firebase Init] Project: ${firebaseConfig.projectId}, DB: ${DATABASE_ID}`);
+      }
+      
+      return { 
+        app: cachedApp, 
+        firestore: cachedFirestore, 
+        auth: cachedAuth,
+        storage: cachedStorage
+      };
+    } catch (e) {
+      console.warn("[Firebase Init] Warning: Running in offline / desktop mode without Firebase connection", e);
+      return { app: null as any, firestore: null as any, auth: null as any, storage: null as any };
     }
-    
-    return { 
-      app: cachedApp, 
-      firestore: cachedFirestore!, 
-      auth: cachedAuth!,
-      storage: cachedStorage!
-    };
   }
   
   // SSR Path
-  const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-  return { 
-    app, 
-    firestore: getFirestore(app, DATABASE_ID), 
-    auth: getAuth(app),
-    storage: getStorage(app)
-  };
+  try {
+    const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+    return { 
+      app, 
+      firestore: getFirestore(app, DATABASE_ID), 
+      auth: getAuth(app),
+      storage: getStorage(app)
+    };
+  } catch (e) {
+    return { app: null as any, firestore: null as any, auth: null as any, storage: null as any };
+  }
 }
 
 export { FirebaseProvider, useFirebase, useFirebaseApp, useFirestore, useAuth } from './provider';

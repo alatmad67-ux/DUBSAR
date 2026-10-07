@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default permissions for DUBSAR 2.0 desktop","local":true,"windows":["*"],"permissions":["core:default","updater:default","updater:allow-check","updater:allow-download-and-install"]}}

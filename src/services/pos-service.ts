@@ -12,25 +12,35 @@ export class POSService {
   private static adapter = AdapterFactory.getAdapter();
 
   static async processSale(cart: any[], customer: any, payment: any, user: any) {
-    // 1. Execute via Adapter (Tauri/Rust or Mock)
-    const result = await this.adapter.execute(DB_COMMANDS.PROCESS_SALE, {
+    return await this.adapter.execute(DB_COMMANDS.PROCESS_SALE, {
       cart,
       customer,
       payment,
-      userName: user?.displayName || 'مدير'
+      user: {
+        id: user?.id,
+        displayName: user?.displayName || user?.userName || 'النظام',
+        role: user?.role,
+        permissions: Array.isArray(user?.permissions) ? user.permissions : [],
+      }
     });
+  }
 
-    // 2. Log Action Locally
-    await this.adapter.execute(DB_COMMANDS.LOG_AUDIT, {
-      action: 'عملية بيع',
-      details: `فاتورة رقم ${result.invoiceNo} بقيمة ${payment.paidAmount}`,
-      user: user?.displayName || 'مدير'
+  static async updateSale(id: string, cart: any[], customer: any, payment: any, user: any) {
+    return await this.adapter.execute(DB_COMMANDS.UPDATE_SALE, {
+      id,
+      cart,
+      customer,
+      payment,
+      user: {
+        id: user?.id,
+        displayName: user?.displayName || user?.userName || 'النظام',
+        role: user?.role,
+        permissions: Array.isArray(user?.permissions) ? user.permissions : [],
+      }
     });
-
-    return result;
   }
 
   static async getRecentSales() {
-    return await this.adapter.query('get_sales');
+    return await this.adapter.query(DB_COMMANDS.GET_SALES);
   }
 }

@@ -21,6 +21,13 @@ export function useUser() {
   const SUPER_ADMIN_UID = 'rQR8k4ZzIZVtvkQ2pUHNlvIDSI13';
 
   useEffect(() => {
+    if (!auth || !db) {
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       
@@ -31,7 +38,6 @@ export function useUser() {
       }
 
       setLoading(true);
-      // جلب البروفايل من قاعدة saas-prod الجديدة حصراً
       const profileRef = doc(db, 'accountProfiles', firebaseUser.uid);
       
       const unsubscribeProfile = onSnapshot(profileRef, 

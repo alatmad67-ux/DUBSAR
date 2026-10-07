@@ -2,8 +2,11 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* Next.js default output for Vercel */
+  /* Static export for Tauri desktop app */
+  output: 'export',
+  productionBrowserSourceMaps: true,
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',

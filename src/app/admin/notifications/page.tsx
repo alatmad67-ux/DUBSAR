@@ -2,171 +2,271 @@
 
 import { 
   Bell, 
-  Send, 
+  AlertTriangle, 
+  AlertCircle, 
+  CheckCircle2, 
+  Clock, 
+  PackageX, 
+  CreditCard, 
+  CheckSquare, 
+  ArrowLeft, 
+  RefreshCw, 
+  Loader2, 
+  Check, 
+  ShieldAlert, 
+  Warehouse, 
   Users, 
-  Target, 
-  Smartphone,
-  CheckCircle2,
-  Clock,
-  History,
-  Loader2
+  ShoppingCart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { useState, useMemo } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "@/hooks/use-toast";
-import { useFirestore, useCollection, useUser } from "@/firebase";
-import { collection, addDoc, query, orderBy, limit, where } from "firebase/firestore";
-import { Skeleton } from "@/components/ui/skeleton";
+import { InternalNotificationService, InternalNotification } from "@/services/internal-notification-service";
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 export default function NotificationsPage() {
-  const db = useFirestore();
-  const { profile, tenantId } = useUser();
-  const [isSending, setIsSending] = useState(false);
-  const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
-  const [target, setTarget] = useState("all");
+  const [notifications, setNotifications] = useState<InternalNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'all' | 'stock' | 'debt' | 'task'>('all');
+  const router = useRouter();
 
-  // FIXED: Scoped to tenantId and ONLY runs when tenantId is available to prevent permission-denied
-  const historyQuery = useMemo(() => {
-    if (!tenantId) return null;
-    return query(
-      collection(db, 'notifications'), 
-      where('tenantId', '==', tenantId),
-      orderBy('timestamp', 'desc'), 
-      limit(10)
-    );
-  }, [db, tenantId]);
-  
-  const { data: history, loading } = useCollection(historyQuery);
+  useEffect(() => {
+    loadNotifications();
+  }, []);
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tenantId) return;
-    setIsSending(true);
+  const loadNotifications = async () => {
+    setLoading(true);
     try {
-      await addDoc(collection(db, 'notifications'), {
-        tenantId,
-        title,
-        message,
-        target,
-        senderName: profile?.displayName || "مدير",
-        timestamp: Date.now(),
-        status: 'sent'
-      });
-      toast({ title: "تم الإرسال", description: "تم حفظ الإشعار وإرساله للمستهدفين." });
-      setTitle("");
-      setMessage("");
+      const data = await InternalNotificationService.getSystemNotifications();
+      setNotifications(data);
     } catch (e) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل إرسال الإشعار." });
+      console.error(e);
+      toast({ variant: "destructive", title: "خطأ", description: "تعذر تحميل تنبيهات النظام." });
     } finally {
-      setIsSending(false);
+      setLoading(false);
     }
   };
 
+  const handleMarkAllAsRead = () => {
+    const ids = notifications.map(n => n.id);
+    InternalNotificationService.markAllAsRead(ids);
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    toast({ title: "تم تحديث التنبيهات", description: "تم تحديد جميع التنبيهات كمقروءة." });
+  };
+
+  const handleNotificationClick = (n: InternalNotification) => {
+    InternalNotificationService.markAsRead(n.id);
+    setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item));
+    router.push(n.link);
+  };
+
+  const filtered = useMemo(() => {
+    if (activeTab === 'all') return notifications;
+    return notifications.filter(n => n.type === activeTab);
+  }, [notifications, activeTab]);
+
+  const stats = useMemo(() => {
+    const stockCount = notifications.filter(n => n.type === 'stock').length;
+    const debtCount = notifications.filter(n => n.type === 'debt').length;
+    const taskCount = notifications.filter(n => n.type === 'task').length;
+    const unreadCount = notifications.filter(n => !n.read).length;
+    return { stockCount, debtCount, taskCount, unreadCount, total: notifications.length };
+  }, [notifications]);
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-black tracking-tight">مركز الإشعارات</h1>
-        <p className="text-muted-foreground font-medium text-sm">إرسال تنبيهات مباشرة وعروض ترويجية لهواتف العملاء.</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <Card className="rounded-[32px] border-none shadow-sm overflow-hidden">
-            <CardHeader className="bg-primary/5 p-8 border-b border-primary/5">
-              <CardTitle className="flex items-center gap-3 text-xl font-black">
-                <Send className="h-6 w-6 text-primary" /> إرسال إشعار جديد
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-8">
-              <form onSubmit={handleSend} className="space-y-6">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                       <Label className="font-bold">عنوان الإشعار</Label>
-                       <Input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: خصم جديد في المجمع!" className="rounded-xl h-12 bg-muted/30 border-none" />
-                    </div>
-                    <div className="space-y-2">
-                       <Label className="font-bold">الفئة المستهدفة</Label>
-                       <Select value={target} onValueChange={setTarget}>
-                          <SelectTrigger className="rounded-xl h-12 bg-muted/30 border-none">
-                             <SelectValue placeholder="اختر الجمهور" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-2xl p-2">
-                             <SelectItem value="all" className="rounded-xl">كافة العملاء</SelectItem>
-                             <SelectItem value="retail" className="rounded-xl">عملاء المفرد</SelectItem>
-                             <SelectItem value="wholesale" className="rounded-xl">عملاء الجملة</SelectItem>
-                          </SelectContent>
-                       </Select>
-                    </div>
-                 </div>
-                 <div className="space-y-2">
-                    <Label className="font-bold">محتوى الرسالة</Label>
-                    <Textarea required value={message} onChange={(e) => setMessage(e.target.value)} placeholder="اكتب نص الإشعار هنا..." className="rounded-2xl bg-muted/30 border-none min-h-[120px]" />
-                 </div>
-                 <Button disabled={isSending || !tenantId} className="w-full h-14 rounded-2xl font-black text-lg gap-2 shadow-xl shadow-primary/20 transition-all hover:scale-[1.01] active:scale-95">
-                    {isSending ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
-                    إرسال الإشعار الآن
-                 </Button>
-              </form>
-            </CardContent>
-          </Card>
+    <div className="space-y-6 select-none animate-in fade-in duration-300 pb-20" dir="rtl">
+      {/* Header */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">مركز تنبيهات وإشعارات النظام</h1>
+            {stats.unreadCount > 0 && (
+              <Badge className="bg-red-500/20 text-red-600 dark:text-red-300 border border-red-500/30 font-black text-xs px-2.5 py-0.5 rounded-full">
+                {stats.unreadCount} غير مقروءة
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs md:text-sm text-muted-foreground font-medium">
+            تنبيهات فورية لنواقص المخزون، ديون العملاء المستحقة، والمهام الإدارية المطلوبة.
+          </p>
         </div>
 
-        <div className="space-y-6">
-          <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-slate-900 text-white">
-             <CardHeader>
-                <CardTitle className="text-lg font-black flex items-center gap-2">
-                   <Target className="h-5 w-5 text-primary" /> إحصائيات الوصول
-                </CardTitle>
-             </CardHeader>
-             <CardContent className="space-y-6">
-                <div className="flex justify-between items-center p-4 rounded-2xl bg-white/5 border border-white/10">
-                   <div className="space-y-1">
-                      <p className="text-[10px] font-black uppercase opacity-60">إجمالي السجلات</p>
-                      <p className="text-2xl font-black">{history?.length || 0}</p>
-                   </div>
-                   <Users className="h-8 w-8 opacity-20" />
-                </div>
-             </CardContent>
-          </Card>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={loadNotifications} 
+            disabled={loading} 
+            className="rounded-xl h-10 px-3 font-bold text-xs gap-1.5"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+            <span>تحديث التنبيهات</span>
+          </Button>
 
-          <Card className="rounded-[32px] border-none shadow-sm">
-             <CardHeader>
-                <CardTitle className="text-lg font-black flex items-center gap-2">
-                   <History className="h-5 w-5 text-primary" /> آخر الإرسالات
-                </CardTitle>
-             </CardHeader>
-             <CardContent className="space-y-4">
-                {loading ? (
-                  Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)
-                ) : history && history.length > 0 ? (
-                  history.map((notif: any) => (
-                    <div key={notif.id} className="p-4 rounded-2xl bg-muted/30 space-y-2 border-r-4 border-primary">
-                       <p className="text-sm font-bold truncate">{notif.title}</p>
-                       <div className="flex items-center justify-between text-[10px] text-muted-foreground font-bold">
-                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(notif.timestamp).toLocaleDateString("ar-EG")}</span>
-                          <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3 w-3" /> {notif.status}</span>
-                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-center text-xs opacity-30 font-bold">لا يوجد تاريخ إرسال.</p>
+          {stats.unreadCount > 0 && (
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={handleMarkAllAsRead} 
+              className="rounded-xl h-10 px-4 font-black text-xs gap-1.5"
+            >
+              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              <span>تحديد الكل كمقروء</span>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-muted-foreground">كافة التنبيهات</span>
+              <p className="text-2xl font-black text-slate-900 dark:text-white font-mono">{stats.total}</p>
+              <p className="text-[11px] text-blue-600 font-bold">{stats.unreadCount} تنبيهات بحاجة لإجراء</p>
+            </div>
+            <div className="h-11 w-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600">
+              <Bell className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-muted-foreground">نواقص المخزون</span>
+              <p className="text-2xl font-black text-red-600 font-mono">{stats.stockCount}</p>
+              <p className="text-[11px] text-red-600 font-bold">مواد نفدت أو قاربت على النفاد</p>
+            </div>
+            <div className="h-11 w-11 rounded-xl bg-red-50 dark:bg-red-950/60 flex items-center justify-center text-red-600">
+              <PackageX className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-muted-foreground">ديون وذمم العملاء</span>
+              <p className="text-2xl font-black text-purple-600 font-mono">{stats.debtCount}</p>
+              <p className="text-[11px] text-purple-600 font-bold">عملاء لديهم مبالغ مستحقة</p>
+            </div>
+            <div className="h-11 w-11 rounded-xl bg-purple-50 dark:bg-purple-950/60 flex items-center justify-center text-purple-600">
+              <CreditCard className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-muted-foreground">المهام المستعجلة</span>
+              <p className="text-2xl font-black text-amber-600 font-mono">{stats.taskCount}</p>
+              <p className="text-[11px] text-amber-600 font-bold">تكليفات بانتظار الإنجاز</p>
+            </div>
+            <div className="h-11 w-11 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600">
+              <CheckSquare className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs Filter */}
+      <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)}>
+        <TabsList className="h-12 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl gap-1">
+          <TabsTrigger value="all" className="rounded-lg font-bold text-xs px-4">
+            الكل ({stats.total})
+          </TabsTrigger>
+          <TabsTrigger value="stock" className="rounded-lg font-bold text-xs px-4">
+            نواقص المخزون ({stats.stockCount})
+          </TabsTrigger>
+          <TabsTrigger value="debt" className="rounded-lg font-bold text-xs px-4">
+            ديون العملاء ({stats.debtCount})
+          </TabsTrigger>
+          <TabsTrigger value="task" className="rounded-lg font-bold text-xs px-4">
+            المهام ({stats.taskCount})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="mt-4 space-y-3">
+          {loading ? (
+            <div className="p-12 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto opacity-40" />
+            </div>
+          ) : filtered.length > 0 ? (
+            filtered.map((alert) => (
+              <Card 
+                key={alert.id} 
+                className={cn(
+                  "rounded-2xl border transition-all hover:shadow-md cursor-pointer",
+                  alert.read 
+                    ? "bg-white/60 dark:bg-slate-900/60 opacity-80" 
+                    : alert.severity === 'critical' 
+                      ? "bg-red-50/40 dark:bg-red-950/20 border-red-200 dark:border-red-900/40" 
+                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
                 )}
-             </CardContent>
-          </Card>
-        </div>
-      </div>
+                onClick={() => handleNotificationClick(alert)}
+              >
+                <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className={cn(
+                      "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm",
+                      alert.type === 'stock' && alert.severity === 'critical' 
+                        ? "bg-red-600 text-white" 
+                        : alert.type === 'stock' 
+                          ? "bg-amber-500 text-white" 
+                          : alert.type === 'debt' 
+                            ? "bg-purple-600 text-white" 
+                            : "bg-blue-600 text-white"
+                    )}>
+                      {alert.type === 'stock' ? <PackageX className="h-6 w-6" /> : alert.type === 'debt' ? <CreditCard className="h-6 w-6" /> : <CheckSquare className="h-6 w-6" />}
+                    </div>
+
+                    <div className="space-y-1 text-right">
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-sm text-slate-900 dark:text-white">{alert.title}</span>
+                        {!alert.read && (
+                          <span className="h-2 w-2 rounded-full bg-red-600" title="غير مقروء" />
+                        )}
+                        <Badge variant="outline" className="text-[10px] font-bold">
+                          {alert.type === 'stock' ? 'مخزون ومواد' : alert.type === 'debt' ? 'حسابات وذمم' : 'مهمة إدارية'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                        {alert.message}
+                      </p>
+                      <span className="text-[10px] text-muted-foreground font-mono block">
+                        {new Date(alert.timestamp).toLocaleDateString('ar-IQ', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button 
+                    size="sm" 
+                    className="rounded-xl font-bold text-xs h-9 px-4 gap-1.5 shrink-0 shadow-sm"
+                  >
+                    <span>{alert.actionText}</span>
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                  </Button>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card className="rounded-2xl border border-dashed p-12 text-center bg-white/50 dark:bg-slate-900/50">
+              <div className="h-12 w-12 rounded-full bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 mx-auto mb-3">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <h3 className="font-black text-slate-800 dark:text-slate-200 text-base mb-1">لا توجد تنبيهات حالية</h3>
+              <p className="text-xs text-muted-foreground font-medium">كافة حركات المخزون والديون والمهام ضمن الحدود الطبيعية المستقرة.</p>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

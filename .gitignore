@@ -43,3 +43,11 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# Tauri & Desktop Builds
+/src-tauri/target/
+/dist-release/
+*.key
+build.log
+.vs/
+latest.json

@@ -1,7 +1,7 @@
 
 {
   "productName": "DUBSAR 2.0",
-  "version": "2.0.0",
+  "version": "2.0.4",
   "identifier": "com.dubsar.pro",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -17,16 +17,20 @@
         "height": 800,
         "resizable": true,
         "fullscreen": false,
-        "decorations": true
+        "decorations": false
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": [
+        "default"
+      ]
     }
   },
   "bundle": {
     "active": true,
     "targets": ["msi", "nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -36,5 +40,16 @@
     ],
     "publisher": "Dubsar Systems",
     "copyright": "Copyright © 2024 Dubsar"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ0NzE2ODIzQzQxM0FEQjEKUldTeHJSUEVJMmh4MUVla2Z2ZUxQWGZDdi9zR2xkNUZaaWJISXZHSGQ3cjNUamUxTUQ3c1pRc1cK",
+      "endpoints": [
+        "https://github.com/alatmad67-ux/DUBSAR/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

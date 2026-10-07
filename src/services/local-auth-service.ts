@@ -20,30 +20,39 @@ export class LocalAuthService {
   private static adapter = AdapterFactory.getAdapter();
 
   static async ensureOwnerExists() {
-    // Initial check for 'admin' user
-    if (!(typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__)) {
-      console.log("[LocalAuth] Mock Owner Check for Browser");
-    }
+    return await this.adapter.execute(DB_COMMANDS.GET_SETUP_STATUS);
+  }
+
+  static async createFirstAdmin(username: string, displayName: string, pin: string) {
+    return await this.adapter.execute(DB_COMMANDS.CREATE_FIRST_ADMIN, {
+      username,
+      displayName,
+      pin,
+    });
+  }
+
+  static async getSetupStatus() {
+    return await this.adapter.execute(DB_COMMANDS.GET_SETUP_STATUS);
+  }
+
+  static async getAppSettings() {
+    return await this.adapter.execute(DB_COMMANDS.GET_APP_SETTINGS);
+  }
+
+  static async saveAppSettings(settings: Record<string, string>) {
+    return await this.adapter.execute(DB_COMMANDS.SAVE_APP_SETTINGS, { settings });
   }
 
   static async login(username: string, pin: string): Promise<LocalUser | null> {
-    try {
-      const user = await this.adapter.execute(DB_COMMANDS.LOGIN, { username, pin });
-      
-      if (user) {
-        // Log successful login
-        await this.adapter.execute(DB_COMMANDS.LOG_AUDIT, {
-          action: 'تسجيل دخول',
-          details: `المستخدم: ${username}`,
-          user: user.displayName
-        });
-      }
-      
-      return user;
-    } catch (error) {
-      console.error("Login failed:", error);
-      return null;
+    const user = await this.adapter.execute(DB_COMMANDS.LOGIN, { username, pin });
+    if (user) {
+      await this.adapter.execute(DB_COMMANDS.LOG_AUDIT, {
+        action: 'تسجيل دخول',
+        details: `المستخدم: ${username}`,
+        user: user.displayName,
+      });
     }
+    return user;
   }
 
   static async getUsers() {
@@ -51,7 +60,7 @@ export class LocalAuthService {
   }
 
   static async createUser(data: any) {
-    return await this.adapter.execute(DB_COMMANDS.CREATE_USER, data);
+    return await this.adapter.execute(DB_COMMANDS.CREATE_USER, { user: data });
   }
 
   static async deleteUser(id: string) {

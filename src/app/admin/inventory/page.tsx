@@ -1,240 +1,62 @@
-
 'use client';
 
-import { useState, useMemo } from "react";
-import { Search, Box, AlertTriangle, History, Loader2, Save } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter,
-  DialogDescription
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useFirestore, useCollection, useUser } from "@/firebase";
-import { collection, query, orderBy, doc, updateDoc, where, addDoc } from "firebase/firestore";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { toast } from "@/hooks/use-toast";
-import { errorEmitter } from "@/firebase/error-emitter";
-import { FirestorePermissionError } from "@/firebase/errors";
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, ClipboardCheck, Loader2, RefreshCw, Save, Search, Warehouse } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { InventoryService } from '@/services/inventory-service';
+import { toast } from '@/hooks/use-toast';
 
 export default function InventoryPage() {
-  const db = useFirestore();
-  const { profile, tenantId } = useUser();
-  const [search, setSearch] = useState("");
-  const [editingProduct, setEditingProduct] = useState<any>(null);
-  const [newStock, setNewStock] = useState<number>(0);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [rows, setRows] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [warehouseId, setWarehouseId] = useState('');
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<any>(null);
+  const [actual, setActual] = useState(0);
+  const [saving, setSaving] = useState(false);
 
-  const productsQuery = useMemo(() => {
-    if (!tenantId) return null;
-    return query(
-      collection(db, 'products'), 
-      where('tenantId', '==', tenantId),
-      orderBy('stock', 'asc')
-    );
-  }, [db, tenantId]);
-  
-  const { data: products, loading } = useCollection(productsQuery);
+  const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('dubsar_session') || '{}') : {};
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [warehouseRows, stockRows] = await Promise.all([InventoryService.getWarehouses(), InventoryService.getWarehouseStock(warehouseId || undefined)]);
+      setWarehouses(warehouseRows);
+      setRows(stockRows);
+      if (!warehouseId && warehouseRows[0]) setWarehouseId(warehouseRows[0].id);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'فشل تحميل المخزون المحلي', description: String(error) });
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, [warehouseId]);
 
-  const filtered = products.filter((p: any) => 
-    p.name.toLowerCase().includes(search.toLowerCase()) || p.barcode?.includes(search)
-  );
+  const filtered = useMemo(() => rows.filter((row) => {
+    const matchesSearch = `${row.name} ${row.barcode || ''} ${row.brand || ''}`.toLowerCase().includes(search.toLowerCase());
+    const rowStatus = row.quantity === 0 ? 'out' : row.quantity <= row.minStockLevel ? 'low' : 'available';
+    return matchesSearch && (status === 'all' || status === rowStatus);
+  }), [rows, search, status]);
+  const inventoryValue = filtered.reduce((sum, row) => sum + Number(row.quantity || 0) * Number(row.purchasePrice || 0), 0);
 
-  const handleUpdateStock = async () => {
-    if (!editingProduct || !tenantId) return;
-    setIsUpdating(true);
-    
-    const docRef = doc(db, 'products', editingProduct.id);
-    const updateData = {
-      stock: newStock,
-      updatedAt: Date.now()
-    };
-
-    updateDoc(docRef, updateData)
-      .then(() => {
-        toast({ title: "تم التحديث", description: `تم تعديل كمية ${editingProduct.name} بنجاح.` });
-        
-        addDoc(collection(db, "auditLogs"), {
-          tenantId,
-          userId: profile?.uid || "admin",
-          userName: profile?.displayName || "مدير",
-          action: "تعديل مخزن يدوي",
-          target: editingProduct.name,
-          details: `تغيير الكمية من ${editingProduct.stock} إلى ${newStock}`,
-          timestamp: Date.now()
-        });
-        
-        setEditingProduct(null);
-      })
-      .catch(async (err) => {
-        const perr = new FirestorePermissionError({
-          path: docRef.path,
-          operation: "update",
-          requestResourceData: updateData
-        });
-        errorEmitter.emit('permission-error', perr);
-      })
-      .finally(() => setIsUpdating(false));
+  const approveCount = async () => {
+    if (!selected || actual < 0 || !warehouseId) return;
+    setSaving(true);
+    try {
+      await InventoryService.countStock(warehouseId, selected.id, actual, user, 'جرد من شاشة المخزون');
+      toast({ title: 'تم اعتماد الجرد', description: 'تم تسجيل الفرق وحركة المخزون.' });
+      setSelected(null);
+      await load();
+    } catch (error) { toast({ variant: 'destructive', title: 'فشل اعتماد الجرد', description: String(error) }); }
+    finally { setSaving(false); }
   };
 
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-black">إدارة المخزون</h1>
-          <p className="text-muted-foreground font-medium">مراقبة مستويات المخزون وتنبيهات النقص.</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="rounded-xl gap-2 h-11 border-2 font-bold"><History className="h-4 w-4" /> سجل الحركات</Button>
-          <Button className="rounded-xl gap-2 h-11 font-bold shadow-lg shadow-primary/20"><Box className="h-5 w-5" /> جرد المخزن</Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="rounded-[28px] border-none shadow-sm bg-orange-50/50">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-orange-800 uppercase tracking-widest">مخزون منخفض</p>
-                <h3 className="text-3xl font-black text-orange-900">{products.filter((p: any) => p.stock < 5 && p.stock > 0).length}</h3>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-[28px] border-none shadow-sm bg-red-50/50">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-red-800 uppercase tracking-widest">نفذت الكمية</p>
-                <h3 className="text-3xl font-black text-red-900">{products.filter((p: any) => p.stock === 0).length}</h3>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-[28px] border-none shadow-sm bg-blue-50/50">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                <Box className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest">إجمالي الأصناف</p>
-                <h3 className="text-3xl font-black text-blue-900">{products.length}</h3>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="relative max-w-md">
-        <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input 
-          placeholder="البحث بالاسم أو الباركود..." 
-          className="h-14 rounded-2xl pr-12 border-none shadow-sm bg-white text-lg"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      <div className="rounded-[32px] overflow-hidden bg-white shadow-sm border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="text-right py-6 px-6">المنتج</TableHead>
-              <TableHead className="text-right">الموقع</TableHead>
-              <TableHead className="text-right">الكمية الحالية</TableHead>
-              <TableHead className="text-right">الحالة</TableHead>
-              <TableHead className="text-left px-6">إجراءات</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array(6).fill(0).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell className="px-6"><Skeleton className="h-6 w-40" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-12" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                  <TableCell className="px-6"><Skeleton className="h-8 w-24 rounded-xl" /></TableCell>
-                </TableRow>
-              ))
-            ) : filtered.map((p: any) => (
-              <TableRow key={p.id} className="hover:bg-muted/5 transition-colors">
-                <TableCell className="font-bold px-6 py-4">{p.name}</TableCell>
-                <TableCell className="text-muted-foreground text-xs font-bold">{p.storageLocation || 'غير محدد'}</TableCell>
-                <TableCell className={cn("font-black text-lg", p.stock < 5 ? "text-destructive" : "text-primary")}>{p.stock}</TableCell>
-                <TableCell>
-                  <Badge className={cn(
-                    "rounded-full border-none font-black text-[10px] px-3 py-1",
-                    p.stock === 0 ? "bg-red-100 text-red-700" : p.stock < 5 ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
-                  )}>
-                    {p.stock === 0 ? "نفذت" : p.stock < 5 ? "منخفض" : "متوفر"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-left px-6">
-                  <button 
-                    className="rounded-xl font-black text-primary hover:bg-primary/5 px-4 py-2"
-                    onClick={() => {
-                      setEditingProduct(p);
-                      setNewStock(p.stock);
-                    }}
-                  >
-                    تعديل الكمية
-                  </button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Dialog open={!!editingProduct} onOpenChange={() => setEditingProduct(null)}>
-        <DialogContent className="rounded-[32px] max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black">تعديل المخزون</DialogTitle>
-            <DialogDescription className="text-xs">قم بتحديث الكمية الفعلية للمنتج في المخزن حالياً.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-             <div className="text-center space-y-1">
-                <p className="font-bold text-sm text-muted-foreground">{editingProduct?.name}</p>
-                <p className="text-[10px] font-black uppercase opacity-50">{editingProduct?.barcode}</p>
-             </div>
-             <div className="space-y-2">
-                <Label className="font-black text-xs mr-1 uppercase tracking-widest opacity-60">الكمية الجديدة</Label>
-                <Input 
-                  type="number" 
-                  value={newStock}
-                  onChange={(e) => setNewStock(Number(e.target.value))}
-                  className="h-16 rounded-2xl text-3xl font-black text-center bg-muted/20 border-none"
-                />
-             </div>
-          </div>
-          <DialogFooter>
-             <Button 
-              disabled={isUpdating}
-              className="w-full h-14 rounded-2xl font-black text-lg gap-2"
-              onClick={handleUpdateStock}
-             >
-                {isUpdating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-                حفظ التعديل
-             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+  return <div className="space-y-6" dir="rtl">
+    <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-black">إدارة المخزون</h1><p className="text-sm font-bold text-muted-foreground">متابعة الكميات وحركات المستودعات والجرد</p></div><Button variant="outline" className="gap-2 font-black" onClick={load}><RefreshCw className="h-4 w-4" /> تحديث</Button></div>
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-3"><div className="rounded-xl border bg-white p-4"><p className="text-xs font-bold text-muted-foreground">الأصناف</p><p className="text-2xl font-black">{filtered.length}</p></div><div className="rounded-xl border bg-white p-4"><p className="text-xs font-bold text-muted-foreground">المخزون المنخفض</p><p className="text-2xl font-black text-orange-600">{filtered.filter((row) => row.quantity > 0 && row.quantity <= row.minStockLevel).length}</p></div><div className="rounded-xl border bg-white p-4"><p className="text-xs font-bold text-muted-foreground">النافد</p><p className="text-2xl font-black text-red-600">{filtered.filter((row) => row.quantity === 0).length}</p></div><div className="rounded-xl border bg-white p-4"><p className="text-xs font-bold text-muted-foreground">قيمة الشراء</p><p className="text-2xl font-black text-primary">{inventoryValue.toLocaleString()} د.ع</p></div></div>
+    <div className="flex flex-wrap gap-3"><div className="relative flex-1 min-w-[260px]"><Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4" /><Input className="h-11 pr-10" placeholder="بحث بالاسم أو الباركود أو الماركة" value={search} onChange={(event) => setSearch(event.target.value)} /></div><select className="h-11 rounded-lg border bg-white px-3 font-bold" value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)}>{warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}</select><select className="h-11 rounded-lg border bg-white px-3 font-bold" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">كل الحالات</option><option value="available">متوفر</option><option value="low">مخزون منخفض</option><option value="out">نافد</option></select></div>
+    <div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full text-sm"><thead className="bg-muted/40"><tr><th className="p-4 text-right">المادة</th><th className="p-4 text-right">الباركود</th><th className="p-4 text-right">الوحدة</th><th className="p-4 text-right">الكمية</th><th className="p-4 text-right">سعر الشراء</th><th className="p-4 text-right">القيمة</th><th className="p-4 text-right">الحالة</th><th /></tr></thead><tbody>{loading ? <tr><td colSpan={8} className="p-10 text-center"><Loader2 className="mx-auto animate-spin" /></td></tr> : filtered.map((row) => { const low = row.quantity > 0 && row.quantity <= row.minStockLevel; return <tr key={`${row.id}-${warehouseId}`} className="border-t hover:bg-muted/20"><td className="p-4 font-black">{row.name}<span className="block text-xs text-muted-foreground">{row.brand || 'بدون ماركة'}</span></td><td className="p-4 text-xs">{row.barcode || '-'}</td><td className="p-4">{row.unit || 'قطعة'}</td><td className="p-4 font-black">{row.quantity}</td><td className="p-4">{Number(row.purchasePrice || 0).toLocaleString()}</td><td className="p-4 font-bold">{(Number(row.purchasePrice || 0) * Number(row.quantity || 0)).toLocaleString()}</td><td className="p-4"><span className={`rounded-full px-3 py-1 text-xs font-black ${row.quantity === 0 ? 'bg-red-100 text-red-700' : low ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{row.quantity === 0 ? 'نافد' : low ? 'منخفض' : 'متوفر'}</span></td><td className="p-4"><Button size="sm" variant="outline" className="gap-2 font-bold" onClick={() => { setSelected(row); setActual(Number(row.quantity)); }}><ClipboardCheck className="h-4 w-4" />جرد</Button></td></tr>; })}</tbody></table></div>
+    {selected && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-5"><div className="flex items-center gap-3"><Warehouse className="text-primary" /><div><h2 className="text-xl font-black">جرد المادة</h2><p className="text-sm font-bold text-muted-foreground">{selected.name}</p></div></div><div className="grid grid-cols-2 gap-3 text-sm font-bold"><div className="rounded-lg bg-muted/30 p-3">النظام: {selected.quantity}</div><div className="rounded-lg bg-muted/30 p-3">الفرق: {actual - selected.quantity}</div></div><div><Label className="font-black">الكمية الفعلية</Label><Input type="number" min="0" value={actual} onChange={(event) => setActual(Number(event.target.value))} className="mt-2 h-12" /></div><div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setSelected(null)}>إلغاء</Button><Button className="flex-1 gap-2 font-black" disabled={saving} onClick={approveCount}>{saving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4" />}اعتماد الجرد</Button></div></div></div>}
+  </div>;
 }
