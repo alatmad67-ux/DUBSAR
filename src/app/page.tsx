@@ -88,19 +88,19 @@ export default function DubsarLandingPage() {
         <nav className="h-14 px-4 rounded-2xl bg-zinc-950/70 border border-white/[0.08] backdrop-blur-xl shadow-2xl flex items-center justify-between">
           
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="h-8 w-8 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center font-mono font-semibold text-xs text-amber-400 group-hover:border-amber-400/50 transition-colors">
-              D2
+            <div className="h-9 w-9 rounded-xl overflow-hidden border border-white/10 ring-1 ring-amber-400/20 group-hover:border-amber-400/50 transition-all shrink-0 bg-zinc-900 shadow-sm">
+              <img src="/logo.jpg" alt="DUBSAR Logo" className="w-full h-full object-cover" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-semibold text-sm tracking-tight text-white">DUBSAR</span>
-              <span className="font-mono text-[10px] text-zinc-500 uppercase">v2.0.4</span>
+              <span className="font-semibold text-sm tracking-tight text-white">دوبسار DUEBSAR</span>
+              <span className="font-mono text-[10px] text-amber-400 uppercase font-semibold">2.0 PRO</span>
             </div>
           </Link>
 
           <div className="hidden md:flex items-center gap-7 text-xs font-medium text-zinc-400">
             <a href="#bento" className="hover:text-zinc-100 transition-colors">المواصفات التقنية</a>
             <a href="#cashier" className="hover:text-zinc-100 transition-colors">نظام الكاشير</a>
-            <a href="#pricing" className="hover:text-zinc-100 transition-colors">التسعير والترخيص</a>
+            <a href="#pricing" className="hover:text-zinc-100 transition-colors">باقات الأسعار</a>
             <a href="#download" className="hover:text-zinc-100 transition-colors">التحميل</a>
             <a href="#faq" className="hover:text-zinc-100 transition-colors">الأسئلة الشائعة</a>
           </div>
@@ -129,14 +129,24 @@ export default function DubsarLandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative z-10 pt-20 pb-20 px-4 sm:px-6 max-w-4xl mx-auto text-center space-y-7">
+      <section className="relative z-10 pt-16 pb-20 px-4 sm:px-6 max-w-4xl mx-auto text-center space-y-7">
         
+        {/* Official Brand Emblem Showcase */}
+        <div className="flex justify-center">
+          <div className="relative group">
+            <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-amber-600/20 blur-xl opacity-70 group-hover:opacity-100 transition-opacity" />
+            <div className="relative h-28 w-28 sm:h-32 sm:w-32 rounded-3xl overflow-hidden border-2 border-amber-400/40 shadow-2xl bg-zinc-900 ring-4 ring-black/40">
+              <img src="/logo.jpg" alt="شعار دوبسار الرسمي DUBSAR" className="w-full h-full object-cover" />
+            </div>
+          </div>
+        </div>
+
         {/* Release Tag Pill */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-white/[0.08] text-xs text-zinc-300">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-zinc-900 border border-white/[0.08] text-xs text-zinc-300">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-mono text-[11px] text-zinc-400">DUBSAR 2.0.4 (x64)</span>
+          <span className="font-mono text-[11px] text-amber-400 font-semibold">DUBSAR 2.0.4 (x64)</span>
           <span className="text-zinc-600">•</span>
-          <span className="text-[11px] font-medium text-zinc-300">الإصدار المكتبي المعتمد</span>
+          <span className="text-[11px] font-medium text-zinc-300">نظام إدارة المبيعات المعتمد رسمياً</span>
         </div>
 
         {/* Hero Title */}
@@ -381,45 +391,51 @@ export default function DubsarLandingPage() {
       {/* Section: Transparent Lifetime Pricing */}
       <section id="pricing" className="relative z-10 py-20 px-4 sm:px-6 max-w-5xl mx-auto space-y-10">
         
-        <div className="space-y-2 text-center max-w-xl mx-auto">
-          <span className="font-mono text-[11px] uppercase tracking-wider text-amber-400">باقات الاستخدام الدائم</span>
-          <h2 className="text-3xl font-semibold text-zinc-100 tracking-tight">استثمار لمرة واحدة دون التزامات شهرية</h2>
+        <div className="space-y-3 text-center max-w-2xl mx-auto">
+          <span className="font-mono text-[11px] uppercase tracking-wider text-amber-400">باقات التمليك الدائم</span>
+          <h2 className="text-3xl font-semibold text-zinc-100 tracking-tight">استثمار لمرة واحدة دون أي اشتراكات</h2>
           <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-            اشترِ النسخة الرسمية وتملكها مدى الحياة. لا توجد رسوم تجديد دورية أو فوترة مخفية.
+            اشترِ النسخة الرسمية وتملكها مدى الحياة. لا توجد رسوم تجديد شهرية أو سنوية، ودون الحاجة للإنترنت.
           </p>
+          
+          {/* Feature Equality Guarantee Banner */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs mt-2">
+            <Check className="h-4 w-4 text-amber-400 shrink-0" strokeWidth={2} />
+            <span>جميع ميزات النظام مفتوحة 100% بالكامل في كافة الباقات — الفرق الوحيد هو عدد الحاسبات</span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
           
-          {/* Plan 1: Single Workstation */}
+          {/* Plan 1: Single Computer */}
           <div className="p-6 rounded-2xl bg-zinc-900/30 border border-white/[0.08] flex flex-col justify-between space-y-6 text-right hover:border-white/15 transition-colors">
             <div className="space-y-4">
               <div className="space-y-1">
-                <span className="font-mono text-[11px] text-zinc-500 uppercase">Single Node</span>
-                <h3 className="text-lg font-semibold text-white">المحطة المنفردة</h3>
-                <p className="text-xs text-zinc-400">مثالي لنقاط البيع الفردية والمتاجر المستقلة</p>
+                <span className="font-mono text-[11px] text-zinc-500 uppercase">1 Workstation</span>
+                <h3 className="text-lg font-semibold text-white">باقة الحاسوب المنفرد</h3>
+                <p className="text-xs text-zinc-400">حاسبة رئيسية واحدة (كاشير أو إدارة) للمتاجر المستقلة</p>
               </div>
 
               <div className="pt-2 border-t border-white/[0.06]">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-semibold text-white font-mono">200,000</span>
+                  <span className="text-3xl font-semibold text-white font-mono">250,000</span>
                   <span className="text-xs font-medium text-zinc-400">د.ع</span>
                 </div>
-                <span className="text-[11px] text-zinc-500 font-mono">رخصة دائمية (Lifetime)</span>
+                <span className="text-[11px] text-zinc-500 font-mono">رخصة دائمية لمدى الحياة (جهاز واحد)</span>
               </div>
 
               <div className="space-y-2.5 text-xs text-zinc-300 pt-2 font-normal">
                 <div className="flex items-center gap-2">
-                  <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
-                  <span>ترخيص جهاز كاشير واحد (1 Workstation)</span>
+                  <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" strokeWidth={2} />
+                  <span className="font-medium text-zinc-100">ترخيص حاسوب رئيسي واحد (1 PC)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
-                  <span>يعمل محلياً بلا إنترنت 100%</span>
+                  <span>يعمل محلياً بلا إنترنت 100% (Offline)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
-                  <span>إدارة المبيعات والمخزن والديون</span>
+                  <span>إدارة المبيعات والمخزن ونظام الديون بالكامل</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
@@ -427,30 +443,34 @@ export default function DubsarLandingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
-                  <span>التحديثات الرسمية المجانية</span>
+                  <span>نسخ احتياطي تلقائي وقاعدة بيانات آمنة</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
+                  <span>كل الميزات البرمجية مفتوحة دون قيود</span>
                 </div>
               </div>
             </div>
 
             <a 
-              href="https://wa.me/9647858833838?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D9%88%D8%AF%20%D8%B7%D9%84%D8%A8%20%D8%A7%D9%84%D8%A8%D8%A7%D9%82%D8%A9%20%D8%A7%D9%84%D9%81%D8%B1%D8%AF%D9%8A%D8%A9%20%D9%84%D9%86%D8%B8%D8%A7%D9%85%20DUBSAR%20(200,000%20%D8%AF.%D8%B9)"
+              href="https://wa.me/9647858833838?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D9%88%D8%AF%20%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D8%A7%D9%84%D8%AD%D8%A7%D8%B3%D9%88%D8%A8%20%D8%A7%D9%84%D9%85%D9%86%D9%81%D8%B1%D8%AF%20%D9%84%D9%86%D8%B8%D8%A7%D9%85%20DUBSAR%20(250,000%20%D8%AF.%D8%B9)"
               target="_blank"
               rel="noreferrer"
               className="w-full h-11 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-200 flex items-center justify-center gap-1.5 transition-colors"
             >
-              <span>طلب الباقة</span>
+              <span>طلب باقة الحاسوب الفردي</span>
               <ArrowUpRight className="h-3 w-3 opacity-60" />
             </a>
           </div>
 
-          {/* Plan 2: Pro Duo (Highlighted with subtle hairline border) */}
+          {/* Plan 2: 2 Computers (Main + 1 Network) */}
           <div className="p-6 rounded-2xl bg-zinc-900/60 border border-amber-400/40 flex flex-col justify-between space-y-6 text-right relative shadow-[inset_0_1px_0_0_rgba(245,158,11,0.2)]">
             <div className="space-y-4">
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
-                  <span className="font-mono text-[11px] text-amber-400 uppercase font-semibold">Dual Node • الأكثر طلباً</span>
-                  <h3 className="text-lg font-semibold text-white">باقة برو (Pro Duo)</h3>
-                  <p className="text-xs text-zinc-400">جهاز كاشير لنقطة البيع + جهاز إدارة ومخزن</p>
+                  <span className="font-mono text-[11px] text-amber-400 uppercase font-semibold">2 Workstations • الأكثر طلباً</span>
+                  <h3 className="text-lg font-semibold text-white">باقة الحاسوبين (رئيسي + شبكي)</h3>
+                  <p className="text-xs text-zinc-400">حاسبة رئيسية + حاسوب ثاني شبكي مربوط محلياً</p>
                 </div>
               </div>
 
@@ -459,92 +479,100 @@ export default function DubsarLandingPage() {
                   <span className="text-3xl font-semibold text-amber-400 font-mono">350,000</span>
                   <span className="text-xs font-medium text-zinc-400">د.ع</span>
                 </div>
-                <span className="text-[11px] text-zinc-500 font-mono">رخصة دائمية لجهازين</span>
+                <span className="text-[11px] text-zinc-500 font-mono">رخصة دائمية لجهازين (Main + 1 Network)</span>
               </div>
 
               <div className="space-y-2.5 text-xs text-zinc-200 pt-2 font-normal">
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" strokeWidth={2} />
-                  <span className="font-medium text-white">جهازان مرخصان (كاشير + إدارة)</span>
+                  <span className="font-medium text-white">حاسوب رئيسي + حاسوب ثاني شبكي (2 PCs)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" strokeWidth={2} />
-                  <span>ربط شبكي محلي فائق السرعة</span>
+                  <span>ربط شبكي محلي فائق السرعة ومستقر</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" strokeWidth={2} />
-                  <span>متابعة المبيعات من الإدارة لحظياً</span>
+                  <span>مزامنة المبيعات والمخزن لحظياً بين الجهازين</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" strokeWidth={2} />
-                  <span>طباعة فواتير مخصصة بالهوية والشعار</span>
+                  <span>طباعة فواتير حرارية و A4 على أي جهاز</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" strokeWidth={2} />
-                  <span>أولوية التحديثات والدعم الفني</span>
+                  <span>كل الميزات البرمجية مفتوحة 100% بالكامل</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" strokeWidth={2} />
+                  <span>دعم فني وأولوية التحديثات المجانية</span>
                 </div>
               </div>
             </div>
 
             <a 
-              href="https://wa.me/9647858833838?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D9%88%D8%AF%20%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D8%A8%D8%B1%D9%88%20(Pro%20Duo)%20%D9%84%D9%86%D8%B8%D8%A7%D9%85%20DUBSAR%20(350,000%20%D8%AF.%D8%B9)"
+              href="https://wa.me/9647858833838?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D9%88%D8%AF%20%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D8%A7%D9%84%D8%AD%D8%A7%D8%B3%D9%88%D8%A8%D9%8A%D9%86%20(%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%20%2B%20%D8%B4%D8%A8%D9%83%D9%8A)%20%D9%84%D9%86%D8%B8%D8%A7%D9%85%20DUBSAR%20(350,000%20%D8%AF.%D8%B9)"
               target="_blank"
               rel="noreferrer"
               className="w-full h-11 rounded-xl text-xs font-semibold bg-white text-zinc-950 hover:bg-zinc-200 flex items-center justify-center gap-1.5 transition-colors shadow-sm"
             >
-              <span>طلب باقة برو</span>
+              <span>طلب باقة الحاسوبين</span>
               <ArrowUpRight className="h-3 w-3 opacity-60" />
             </a>
           </div>
 
-          {/* Plan 3: Enterprise Network */}
+          {/* Plan 3: 3 Computers (Main + 2 Network) */}
           <div className="p-6 rounded-2xl bg-zinc-900/30 border border-white/[0.08] flex flex-col justify-between space-y-6 text-right hover:border-white/15 transition-colors">
             <div className="space-y-4">
               <div className="space-y-1">
-                <span className="font-mono text-[11px] text-zinc-500 uppercase">Enterprise</span>
-                <h3 className="text-lg font-semibold text-white">الشبكات والشركات</h3>
-                <p className="text-xs text-zinc-400">منظومة متكاملة من 3 إلى 5 محطات عمل</p>
+                <span className="font-mono text-[11px] text-zinc-500 uppercase">3 Workstations</span>
+                <h3 className="text-lg font-semibold text-white">باقة 3 حاسبات (رئيسية + 2 شبكي)</h3>
+                <p className="text-xs text-zinc-400">حاسبة رئيسية + حاسوبين شبكيين لنقاط البيع والمخازن</p>
               </div>
 
               <div className="pt-2 border-t border-white/[0.06]">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-semibold text-white font-mono">500,000</span>
+                  <span className="text-3xl font-semibold text-white font-mono">450,000</span>
                   <span className="text-xs font-medium text-zinc-400">د.ع</span>
                 </div>
-                <span className="text-[11px] text-zinc-500 font-mono">رخصة دائمية شبكية</span>
+                <span className="text-[11px] text-zinc-500 font-mono">رخصة دائمية لـ 3 أجهزة (Main + 2 Networks)</span>
               </div>
 
               <div className="space-y-2.5 text-xs text-zinc-300 pt-2 font-normal">
                 <div className="flex items-center gap-2">
-                  <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
-                  <span>3 إلى 5 أجهزة مرخصة في شبكة واحدة</span>
+                  <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" strokeWidth={2} />
+                  <span className="font-medium text-zinc-100">حاسبة رئيسية + حاسوبين شبكيين (3 PCs)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
-                  <span>كاشيرات متعددة + مخازن + محاسبة</span>
+                  <span>ربط شبكي متزامن لـ 3 محطات عمل معاً</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
-                  <span>صلاحيات دقيقة وتدقيق للموظفين</span>
+                  <span>توزيع نقاط البيع (كاشيرات متعددة + إدارة + مخزن)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
-                  <span>نسخ احتياطي مبرمج وقاعدة مركزية</span>
+                  <span>صلاحيات دقيقة وتدقيق مبيعات الموظفين</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
-                  <span>تدريب كامل ومرافقة تشغيل أولية</span>
+                  <span>كل الميزات البرمجية مفتوحة 100% بالكامل</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="h-3.5 w-3.5 text-zinc-400 shrink-0" strokeWidth={2} />
+                  <span>مساعدة كاملة في الربط والإعداد الشبكي</span>
                 </div>
               </div>
             </div>
 
             <a 
-              href="https://wa.me/9647858833838?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D9%88%D8%AF%20%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%20%D8%A7%D9%84%D8%B4%D8%A8%D9%83%D8%A7%D8%AA%20%D9%84%D9%86%D8%B8%D8%A7%D9%85%20DUBSAR%20(500,000%20%D8%AF.%D8%B9)"
+              href="https://wa.me/9647858833838?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D9%88%D8%AF%20%D8%B7%D9%84%D8%A8%20%D8%A8%D8%A7%D9%82%D8%A9%203%20%D8%AD%D8%A7%D8%B3%D8%A8%D8%A7%D8%AA%20(%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9%20%2B%202%20%D8%B4%D8%A8%D9%83%D9%8A)%20%D9%84%D9%86%D8%B8%D8%A7%D9%85%20DUBSAR%20(450,000%20%D8%AF.%D8%B9)"
               target="_blank"
               rel="noreferrer"
               className="w-full h-11 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-200 flex items-center justify-center gap-1.5 transition-colors"
             >
-              <span>طلب باقة الشركات</span>
+              <span>طلب باقة الـ 3 حاسبات</span>
               <ArrowUpRight className="h-3 w-3 opacity-60" />
             </a>
           </div>
@@ -694,14 +722,24 @@ export default function DubsarLandingPage() {
       </section>
 
       {/* Editorial Minimal Footer */}
-      <footer className="relative z-10 border-t border-white/[0.06] py-10 px-4 sm:px-6 text-center text-xs text-zinc-500 space-y-2 font-mono">
-        <div className="flex items-center justify-center gap-2 text-zinc-400">
-          <span>DUBSAR 2.0 PRO</span>
-          <span>•</span>
-          <span>Offline POS & Enterprise Ledger</span>
+      <footer className="relative z-10 border-t border-white/[0.06] py-12 px-4 sm:px-6 text-center text-xs text-zinc-500 space-y-4">
+        <div className="flex items-center justify-center gap-3">
+          <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-amber-500/30 bg-zinc-900 shrink-0 shadow-sm">
+            <Image 
+              src="/logo.jpg" 
+              alt="DUBSAR 2.0" 
+              fill
+              className="object-cover"
+            />
+          </div>
+          <div className="flex items-center gap-2 text-zinc-300 font-mono text-xs">
+            <span className="font-semibold text-white">DUBSAR 2.0 PRO</span>
+            <span className="text-zinc-600">•</span>
+            <span>Offline POS & Enterprise Ledger</span>
+          </div>
         </div>
-        <p className="text-[11px] text-zinc-600 font-sans">
-          جميع الحقوق محفوظة © 2026 DUBSAR Systems • تطوير المطور حسين صلاح
+        <p className="text-[11px] text-zinc-500 font-sans">
+          جميع الحقوق محفوظة © 2026 منظومة دوبسار (DUBSAR Systems) • تطوير المطور حسين صلاح
         </p>
       </footer>
 
