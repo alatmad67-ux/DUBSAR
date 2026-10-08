@@ -23,7 +23,31 @@ function loadRegistry() {
   try {
     if (fs.existsSync(REGISTRY_JSON_PATH)) {
       const data = fs.readFileSync(REGISTRY_JSON_PATH, 'utf8');
-      return JSON.parse(data);
+      const list = JSON.parse(data);
+      let modified = false;
+
+      // Migrate existing keys to safe unicode-escaped format
+      for (const item of list) {
+        if (item.armoredKey) {
+          try {
+            const rawDecoded = Buffer.from(item.armoredKey, 'base64').toString('utf8');
+            const tokenObj = JSON.parse(rawDecoded);
+            const safeAscii = JSON.stringify(tokenObj).replace(/[^\x00-\x7F]/g, ch => {
+              return '\\u' + ('0000' + ch.charCodeAt(0).toString(16)).slice(-4);
+            });
+            const safeArmored = Buffer.from(safeAscii, 'ascii').toString('base64');
+            if (safeArmored !== item.armoredKey) {
+              item.armoredKey = safeArmored;
+              modified = true;
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (modified) {
+        saveRegistry(list);
+      }
+      return list;
     }
   } catch (e) {}
   return [];
@@ -58,9 +82,14 @@ function signPayload(payload) {
     signature
   };
 
+  // Safe ASCII-only Unicode escaping so browser atob() decodes without mangling Arabic UTF-8 bytes
+  const jsonAsciiOnly = JSON.stringify(licenseToken).replace(/[^\x00-\x7F]/g, ch => {
+    return '\\u' + ('0000' + ch.charCodeAt(0).toString(16)).slice(-4);
+  });
+
   return {
     licenseToken,
-    armoredKey: Buffer.from(JSON.stringify(licenseToken)).toString('base64')
+    armoredKey: Buffer.from(jsonAsciiOnly, 'ascii').toString('base64')
   };
 }
 

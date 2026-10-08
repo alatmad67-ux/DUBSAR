@@ -214,9 +214,18 @@ export class LicenseManager {
     const currentDeviceId = this.getMachineFingerprint();
     let token: LicenseToken;
 
-    try {
-      // Decode base64 armored license token
-      const decodedJson = atob(cleanKey);
+      // Decode base64 armored license token safely supporting both UTF-8 and ASCII
+      const binaryString = atob(cleanKey);
+      let decodedJson: string;
+      try {
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        decodedJson = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch {
+        decodedJson = binaryString;
+      }
       token = JSON.parse(decodedJson);
     } catch (e) {
       throw new Error("صيغة كود الترخيص غير صالحة. تأكد من نسخ الكود كاملاً.");
