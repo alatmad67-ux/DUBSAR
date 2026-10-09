@@ -61,8 +61,8 @@ export default function DubsarLandingPage() {
     );
   }
 
-  const downloadExeUrl = "https://github.com/alatmad67-ux/DUBSAR/releases/latest/download/DUBSAR.2.0_2.0.4_x64-setup.exe";
-  const downloadMsiUrl = "https://github.com/alatmad67-ux/DUBSAR/releases/latest/download/DUBSAR.2.0_2.0.4_x64_en-US.msi";
+  const downloadExeUrl = "https://github.com/alatmad67-ux/DUBSAR/releases/latest/download/DUBSAR.2.0_2.0.5_x64-setup.exe";
+  const downloadMsiUrl = "https://github.com/alatmad67-ux/DUBSAR/releases/latest/download/DUBSAR.2.0_2.0.5_x64_en-US.msi";
   const developerWhatsApp = "https://wa.me/9647858833838";
 
   const banknotes = [
@@ -144,7 +144,7 @@ export default function DubsarLandingPage() {
         {/* Release Tag Pill */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-zinc-900 border border-white/[0.08] text-xs text-zinc-300">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-mono text-[11px] text-amber-400 font-semibold">DUBSAR 2.0.4 (x64)</span>
+          <span className="font-mono text-[11px] text-amber-400 font-semibold">DUBSAR 2.0.5 (x64)</span>
           <span className="text-zinc-600">•</span>
           <span className="text-[11px] font-medium text-zinc-300">نظام إدارة المبيعات المعتمد رسمياً</span>
         </div>
@@ -602,7 +602,7 @@ export default function DubsarLandingPage() {
             >
               <div className="space-y-0.5">
                 <p className="text-xs font-semibold text-white group-hover:text-amber-400 transition-colors">مثبت الإعداد التنفيذي (.exe)</p>
-                <p className="text-[11px] font-mono text-zinc-500">DUBSAR.2.0_2.0.4_x64-setup.exe • 9 MB</p>
+                <p className="text-[11px] font-mono text-zinc-500">DUBSAR.2.0_2.0.5_x64-setup.exe • 9 MB</p>
               </div>
               <Download className="h-4 w-4 text-zinc-400 group-hover:text-white transition-colors" strokeWidth={1.5} />
             </a>
@@ -613,7 +613,7 @@ export default function DubsarLandingPage() {
             >
               <div className="space-y-0.5">
                 <p className="text-xs font-semibold text-white group-hover:text-amber-400 transition-colors">حزمة النشر المؤسسية (.msi)</p>
-                <p className="text-[11px] font-mono text-zinc-500">DUBSAR.2.0_2.0.4_x64_en-US.msi • 10 MB</p>
+                <p className="text-[11px] font-mono text-zinc-500">DUBSAR.2.0_2.0.5_x64_en-US.msi • 10 MB</p>
               </div>
               <Package className="h-4 w-4 text-zinc-400 group-hover:text-white transition-colors" strokeWidth={1.5} />
             </a>

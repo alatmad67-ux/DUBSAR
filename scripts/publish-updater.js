@@ -71,7 +71,7 @@ const remoteExeName = `DUBSAR.2.0_${version}_x64-setup.exe`;
 
 const latestJsonContent = {
   version: version,
-  notes: `DUBSAR ${version} - التحديث الرسمي الشامل: إضافة نظام الترخيص الدائم Lifetime، محرك قوالب الطباعة الموحد، صور الفئات النقدية العراقية، واستوديو إدارة الزبائن والفواتير المعتمدة.`,
+  notes: `DUBSAR ${version} - التحديث الرسمي الشامل: ترقية نظام التراخيص الدائم Lifetime للتوافق التام مع الحروف العربية والـ Unicode، إضافة قوالب طباعة الفواتير A4 المرنة مع إمكانية إخفاء وإظهار الأعمدة والهيدر المخصص، والتحديثات الأمنية.`,
   pub_date: new Date().toISOString(),
   platforms: {
     'windows-x86_64': {
