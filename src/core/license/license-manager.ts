@@ -214,6 +214,7 @@ export class LicenseManager {
     const currentDeviceId = this.getMachineFingerprint();
     let token: LicenseToken;
 
+    try {
       // Decode base64 armored license token safely supporting both UTF-8 and ASCII
       const binaryString = atob(cleanKey);
       let decodedJson: string;
