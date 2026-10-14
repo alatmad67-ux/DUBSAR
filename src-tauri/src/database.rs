@@ -331,6 +331,9 @@ impl Database {
         ensure_barcode_available(&connection, optional_string(product, &["barcode"]).as_deref(), Some(id))?;
         let changed = connection.execute("UPDATE products SET category_id = COALESCE(?1, category_id), name = COALESCE(?2, name), sku = COALESCE(?3, sku), barcode = COALESCE(?4, barcode), description = COALESCE(?5, description), purchase_price = COALESCE(?6, purchase_price), retail_price = COALESCE(?7, retail_price), wholesale_price = COALESCE(?8, wholesale_price), agent_price = COALESCE(?9, agent_price), unit = COALESCE(?10, unit), brand = COALESCE(?11, brand), stock_quantity = COALESCE(?12, stock_quantity), min_stock_level = COALESCE(?13, min_stock_level), storage_location = COALESCE(?14, storage_location), image_url = COALESCE(?15, image_url), is_featured = COALESCE(?16, is_featured), status = COALESCE(?17, status), active = COALESCE(?18, active), updated_at = ?19 WHERE id = ?20", params![optional_string(product, &["categoryId", "category_id"]), optional_string(product, &["name"]), optional_string(product, &["sku"]), optional_string(product, &["barcode"]), optional_string(product, &["description"]), optional_number(product, &["purchasePrice", "purchase_price"]), optional_number(product, &["retailPrice", "retail_price"]), optional_number(product, &["wholesalePrice", "wholesale_price"]), optional_number(product, &["agentPrice", "agent_price"]), optional_string(product, &["unit"]), optional_string(product, &["brand"]), optional_integer(product, &["stockQuantity", "stock_quantity"]), optional_integer(product, &["minStockLevel", "min_stock_level"]), optional_string(product, &["storageLocation", "storage_location"]), optional_string(product, &["imageUrl", "image_url"]), optional_bool(product, &["isFeatured", "is_featured"]), optional_string(product, &["status"]), optional_bool(product, &["active"]), now(), id]).map_err(unique_or_db_error)?;
         if changed == 0 { return Err("المادة المطلوبة غير موجودة".to_string()); }
+        if let Some(new_stock) = optional_integer(product, &["stockQuantity", "stock_quantity"]) {
+            connection.execute("INSERT INTO warehouse_stock (warehouse_id, product_id, quantity, updated_at) VALUES ('default-warehouse', ?1, ?2, ?3) ON CONFLICT(warehouse_id, product_id) DO UPDATE SET quantity = excluded.quantity, updated_at = excluded.updated_at", params![id, new_stock, now()]).ok();
+        }
         self.product_by_id(id)
     }
 
@@ -652,9 +655,21 @@ impl Database {
         let customer_name = customer.get("name").and_then(Value::as_str).unwrap_or("").trim();
         let paid_amount = optional_number(payment, &["paidAmount", "paid"]).unwrap_or(0.0);
         let sale_id = Uuid::new_v4().to_string();
-        let invoice_no = optional_string(payment, &["invoiceNo", "invoice_no"]).filter(|s| !s.trim().is_empty()).unwrap_or_else(|| format!("INV-{}", now()));
         let connection = self.connection()?;
         let transaction = connection.unchecked_transaction().map_err(db_error)?;
+        let invoice_no = match optional_string(payment, &["invoiceNo", "invoice_no"]).filter(|s| !s.trim().is_empty()) {
+            Some(no) => no,
+            None => {
+                let count: i64 = transaction.query_row("SELECT COUNT(*) FROM sales", [], |row| row.get(0)).unwrap_or(0);
+                let mut candidate = format!("{:04}", count + 1);
+                let mut idx = 1;
+                while transaction.query_row("SELECT EXISTS(SELECT 1 FROM sales WHERE invoice_no = ?1)", [&candidate], |row| row.get::<_, bool>(0)).unwrap_or(false) {
+                    idx += 1;
+                    candidate = format!("{:04}", count + idx);
+                }
+                candidate
+            }
+        };
 
         if customer_id.is_none() && !customer_name.is_empty() && customer_name != "زبون نقدي" {
             let existing_id: Option<String> = transaction.query_row(

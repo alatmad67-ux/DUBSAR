@@ -25,10 +25,10 @@ export class SqliteSaleRepository {
     userName: string;
   }) {
     const saleId = uuidv4();
-    const invoiceNo = `INV-${Date.now().toString().slice(-6)}`;
-
-    // Execute in a Transaction to ensure data consistency
     return await db.transaction(async (tx) => {
+      const countRes = await tx.select({ count: sql`count(*)` }).from(sales);
+      const invoiceNo = String(Number((countRes[0] as any)?.count || 0) + 1).padStart(4, '0');
+
       // 1. Create Sale Header
       await tx.insert(sales).values({
         id: saleId,

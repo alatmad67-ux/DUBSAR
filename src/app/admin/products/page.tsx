@@ -19,9 +19,11 @@ import {
   Zap,
   MoreHorizontal,
   Barcode,
-  AlertCircle
+  AlertCircle,
+  FileSpreadsheet
 } from "lucide-react";
 import Link from "next/link";
+import { ExcelImportDialog } from "@/components/products/excel-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -44,6 +46,7 @@ export default function ProductsManagementPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -161,6 +164,14 @@ export default function ProductsManagementPage() {
           <p className="text-muted-foreground font-medium text-sm">سجل المواد والأسعار والمخزون</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setIsImportModalOpen(true)}
+            className="rounded-xl font-bold h-11 gap-2 border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 shadow-xs"
+          >
+            <FileSpreadsheet className="h-4 w-4" /> استيراد من Excel
+          </Button>
+
           <Link href="/admin/products/barcode">
             <Button variant="outline" className="rounded-xl font-bold h-11 gap-2 border-primary/30 text-primary hover:bg-primary/5">
               <Barcode className="h-4 w-4" /> استوديو طباعة الباركود
@@ -170,6 +181,14 @@ export default function ProductsManagementPage() {
           <Button onClick={openCreateDialog} className="rounded-xl font-bold h-11 gap-2 shadow-sm">
             <Plus className="h-5 w-5" /> إضافة مادة جديدة
           </Button>
+
+          <ExcelImportDialog
+            isOpen={isImportModalOpen}
+            onOpenChange={setIsImportModalOpen}
+            existingProducts={products}
+            existingCategories={categories}
+            onImportSuccess={loadData}
+          />
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogContent className="max-w-2xl rounded-[32px]">

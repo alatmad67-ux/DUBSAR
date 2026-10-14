@@ -403,14 +403,14 @@ export class DocumentRenderer {
     }
 
     const activeCols: ColDef[] = [];
-    if (showItemIndex) activeCols.push({ key: 'index', label: '#', weight: 4.5, align: 'center' });
-    activeCols.push({ key: 'name', label: 'المادة', weight: 35, align: 'right' });
+    if (showItemIndex) activeCols.push({ key: 'index', label: '#', weight: 5, align: 'center' });
+    activeCols.push({ key: 'name', label: 'المادة', weight: 34, align: 'right' });
     if (showBarcode) activeCols.push({ key: 'barcode', label: 'الباركود', weight: 14, align: 'center' });
-    if (showUnit) activeCols.push({ key: 'unit', label: 'الوحدة', weight: 8.5, align: 'center' });
-    activeCols.push({ key: 'quantity', label: 'العدد', weight: 8, align: 'center' });
-    activeCols.push({ key: 'price', label: 'سعر الوحدة', weight: 13, align: 'center' });
+    if (showUnit) activeCols.push({ key: 'unit', label: 'الوحدة', weight: 8, align: 'center' });
+    activeCols.push({ key: 'quantity', label: 'العدد', weight: 9, align: 'center' });
+    activeCols.push({ key: 'price', label: 'سعر الوحدة', weight: 14, align: 'center' });
     if (showDiscount) activeCols.push({ key: 'discount', label: 'الخصم', weight: 8, align: 'center' });
-    activeCols.push({ key: 'total', label: 'الإجمالي', weight: 14, align: 'left' });
+    activeCols.push({ key: 'total', label: 'الإجمالي', weight: 16, align: 'center' });
 
     const totalWeight = activeCols.reduce((sum, c) => sum + c.weight, 0);
     const colgroupHtml = activeCols
@@ -418,7 +418,7 @@ export class DocumentRenderer {
       .join('\n');
 
     const theadHtml = activeCols
-      .map((c) => `<th class="${c.align}">${c.label}</th>`)
+      .map((c) => `<th class="${c.align} col-${c.key}">${c.label}</th>`)
       .join('\n');
 
     const items = data.items || [];
@@ -438,27 +438,27 @@ export class DocumentRenderer {
             .map((col) => {
               switch (col.key) {
                 case 'index':
-                  return `<td class="center font-mono num-ltr">${idx + 1}</td>`;
+                  return `<td class="center col-index font-mono num-ltr">${idx + 1}</td>`;
                 case 'name':
                   return `
-                    <td class="right item-name-cell">
+                    <td class="right col-name item-name-cell">
                       <div class="wrap-text bold">${it.name}</div>
                       ${it.serialNo ? `<div class="sub-text font-mono num-ltr">S/N: ${it.serialNo}</div>` : ''}
                       ${it.notes ? `<div class="sub-text">${it.notes}</div>` : ''}
                     </td>
                   `;
                 case 'barcode':
-                  return `<td class="center font-mono num-ltr">${it.barcode || '-'}</td>`;
+                  return `<td class="center col-barcode font-mono num-ltr">${it.barcode || '-'}</td>`;
                 case 'unit':
-                  return `<td class="center">${it.unit || 'قطعة'}</td>`;
+                  return `<td class="center col-unit">${it.unit || 'قطعة'}</td>`;
                 case 'quantity':
-                  return `<td class="center font-mono num-ltr bold">${qty}</td>`;
+                  return `<td class="center col-quantity font-mono num-ltr bold">${qty}</td>`;
                 case 'price':
-                  return `<td class="center font-mono num-ltr">${Number(it.price || 0).toLocaleString()}</td>`;
+                  return `<td class="center col-price font-mono num-ltr">${Number(it.price || 0).toLocaleString('en-US')}</td>`;
                 case 'discount':
-                  return `<td class="center font-mono num-ltr">${Number(it.discount || 0) > 0 ? Number(it.discount).toLocaleString() : '-'}</td>`;
+                  return `<td class="center col-discount font-mono num-ltr">${Number(it.discount || 0) > 0 ? Number(it.discount).toLocaleString('en-US') : '-'}</td>`;
                 case 'total':
-                  return `<td class="left font-mono num-ltr bold table-total-cell">${lineTotal.toLocaleString()}</td>`;
+                  return `<td class="center col-total font-mono num-ltr bold table-total-cell">${lineTotal.toLocaleString('en-US')}</td>`;
                 default:
                   return '<td></td>';
               }
@@ -500,15 +500,15 @@ export class DocumentRenderer {
           <div class="totals-subcolumn">
             <div class="total-row">
               <span class="total-label">إجمالي المواد:</span>
-              <span class="total-value font-mono num-ltr">${subtotal.toLocaleString()} ${cur}</span>
+              <span class="total-value font-mono num-ltr">${subtotal.toLocaleString('en-US')} ${cur}</span>
             </div>
             <div class="total-row">
               <span class="total-label">الخصم:</span>
-              <span class="total-value font-mono num-ltr">${discount.toLocaleString()} ${cur}</span>
+              <span class="total-value font-mono num-ltr">${discount.toLocaleString('en-US')} ${cur}</span>
             </div>
             <div class="total-row net-total-row">
               <span class="total-label bold">الصافي:</span>
-              <span class="total-value bold font-mono num-ltr">${netTotal.toLocaleString()} ${cur}</span>
+              <span class="total-value bold font-mono num-ltr">${netTotal.toLocaleString('en-US')} ${cur}</span>
             </div>
           </div>
 
@@ -517,11 +517,11 @@ export class DocumentRenderer {
           <div class="totals-subcolumn">
             <div class="total-row">
               <span class="total-label">المدفوع:</span>
-              <span class="total-value font-mono num-ltr" style="color: #16a34a;">${paid.toLocaleString()} ${cur}</span>
+              <span class="total-value font-mono num-ltr" style="color: #16a34a;">${paid.toLocaleString('en-US')} ${cur}</span>
             </div>
             <div class="total-row">
               <span class="total-label">المتبقي:</span>
-              <span class="total-value font-mono num-ltr ${remaining > 0 ? 'debt-highlight' : ''}">${remaining.toLocaleString()} ${cur}</span>
+              <span class="total-value font-mono num-ltr ${remaining > 0 ? 'debt-highlight' : ''}">${remaining.toLocaleString('en-US')} ${cur}</span>
             </div>
             <div class="total-row">
               <span class="total-label">عدد المواد:</span>
@@ -533,8 +533,8 @@ export class DocumentRenderer {
 
       ${(showPrevBal && prevBal > 0) || (showCurrBal && currBal > 0) ? `
       <div class="a4-balances-strip">
-        ${showPrevBal && prevBal > 0 ? `<span>الرصيد السابق: <strong class="font-mono num-ltr">${prevBal.toLocaleString()} ${cur}</strong></span>` : ''}
-        ${showCurrBal && currBal > 0 ? `<span>الرصيد الكلي في الذمة: <strong class="font-mono num-ltr" style="color: #dc2626;">${currBal.toLocaleString()} ${cur}</strong></span>` : ''}
+        ${showPrevBal && prevBal > 0 ? `<span>الرصيد السابق: <strong class="font-mono num-ltr">${prevBal.toLocaleString('en-US')} ${cur}</strong></span>` : ''}
+        ${showCurrBal && currBal > 0 ? `<span>الرصيد الكلي في الذمة: <strong class="font-mono num-ltr" style="color: #dc2626;">${currBal.toLocaleString('en-US')} ${cur}</strong></span>` : ''}
       </div>` : ''}
     `;
 
@@ -563,15 +563,13 @@ export class DocumentRenderer {
       `
       : '';
 
-    // Official DUBSAR Footer
+    // Minimal Unobtrusive Footer: ONLY DUBSAR and store phone from settings, low opacity, no boxes/lines/decorations
+    const storePhone = [data.business?.phone1, data.business?.phone2].filter(Boolean).join(' - ') || data.business?.phone1 || '';
+
     const footerHtml = `
-      <div class="a4-official-footer">
-        ${this.getBottomRibbonsSvg()}
-        <div class="footer-center-text">
-          <span>نظام DUBSAR لإدارة المبيعات</span>
-          <span class="footer-bullet">•</span>
-          <span class="font-mono num-ltr">07858833838</span>
-        </div>
+      <div class="a4-minimal-footer">
+        <span>اسم النظام: DUBSAR</span>
+        ${storePhone ? `<span class="footer-dot">•</span><span>رقم الهاتف: <span class="num-ltr">${storePhone}</span></span>` : ''}
       </div>
     `;
 
@@ -881,9 +879,11 @@ export class DocumentRenderer {
           /* Items Table */
           .a4-table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
             margin-bottom: 12px;
             border: 1px solid #13293d;
+            box-sizing: border-box;
           }
 
           .a4-table thead tr {
@@ -892,10 +892,20 @@ export class DocumentRenderer {
           }
 
           .a4-table th {
-            padding: 7px 5px;
-            font-size: 11.5px;
+            padding: 7px 4px;
+            font-size: 11px;
             font-weight: 800;
             border-left: 1px solid rgba(255, 255, 255, 0.15);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
+            text-align: center;
+          }
+
+          .a4-table th.col-name {
+            text-align: right;
+            padding-right: 8px;
           }
 
           .a4-table th:last-child {
@@ -903,11 +913,12 @@ export class DocumentRenderer {
           }
 
           .a4-table td {
-            padding: 6px 5px;
+            padding: 6px 4px;
             font-size: 11px;
             border-bottom: 1px solid #e2e8f0;
             border-left: 1px solid #e2e8f0;
             vertical-align: middle;
+            box-sizing: border-box;
           }
 
           .a4-table td:last-child {
@@ -918,8 +929,30 @@ export class DocumentRenderer {
             background: #f8fafc;
           }
 
+          .a4-table td.col-index,
+          .a4-table td.col-barcode,
+          .a4-table td.col-unit,
+          .a4-table td.col-quantity,
+          .a4-table td.col-price,
+          .a4-table td.col-discount,
+          .a4-table td.col-total {
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+            text-align: center;
+          }
+
+          .a4-table td.col-name {
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            text-align: right;
+            line-height: 1.35;
+            padding-right: 8px;
+          }
+
           .table-total-cell {
             color: #13293d;
+            font-weight: 800;
           }
 
           .empty-table-cell {
@@ -1066,34 +1099,24 @@ export class DocumentRenderer {
             font-size: 10px;
           }
 
-          /* Bottom Decorative Ribbon & Official Footer */
-          .a4-bottom-ribbon-decor {
-            position: absolute;
-            bottom: -10mm;
-            left: -12mm;
-            z-index: 1;
-            pointer-events: none;
-          }
-
-          .a4-official-footer {
-            position: relative;
-            border-top: 1.5px solid #13293d;
-            padding-top: 6px;
-            margin-top: 10px;
-          }
-
-          .footer-center-text {
+          /* Minimal Unobtrusive Footer */
+          .a4-minimal-footer {
             text-align: center;
-            font-size: 11px;
-            font-weight: 800;
-            color: #13293d;
-            position: relative;
-            z-index: 2;
+            font-size: 8.5px;
+            color: #64748b;
+            opacity: 0.55;
+            margin-top: 14px;
+            padding: 0;
+            border: none !important;
+            background: transparent !important;
+            letter-spacing: 0.2px;
+            user-select: none;
+            clear: both;
           }
 
-          .footer-bullet {
-            margin: 0 8px;
-            color: #d4af37;
+          .footer-dot {
+            margin: 0 6px;
+            color: #94a3b8;
           }
 
           @media print {
@@ -1175,8 +1198,8 @@ export class DocumentRenderer {
           <td class="col-num num-ltr">${i + 1}</td>
           <td class="col-name wrap-text">${it.name}</td>
           <td class="col-qty num-ltr bold">${qty}</td>
-          <td class="col-price num-ltr">${Number(it.price || 0).toLocaleString()}</td>
-          <td class="col-tot num-ltr bold">${lineTotal.toLocaleString()}</td>
+          <td class="col-price num-ltr">${Number(it.price || 0).toLocaleString('en-US')}</td>
+          <td class="col-tot num-ltr bold">${lineTotal.toLocaleString('en-US')}</td>
         </tr>
       `;
     }
@@ -1318,9 +1341,11 @@ export class DocumentRenderer {
           /* Table */
           .rec-table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
             font-size: 9.5px;
             margin-bottom: 6px;
+            box-sizing: border-box;
           }
 
           .rec-table th {
@@ -1328,19 +1353,25 @@ export class DocumentRenderer {
             color: #ffffff;
             padding: 3px 2px;
             font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
+            text-align: center;
           }
 
           .rec-table td {
             padding: 3px 2px;
             border-bottom: 1px dotted #e2e8f0;
             vertical-align: middle;
+            box-sizing: border-box;
           }
 
-          .col-num { width: 8%; text-align: center; }
-          .col-name { width: 44%; text-align: right; }
-          .col-qty { width: 12%; text-align: center; }
-          .col-price { width: 18%; text-align: center; }
-          .col-tot { width: 18%; text-align: left; }
+          .col-num { width: 8%; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+          .col-name { width: 42%; text-align: right; white-space: normal; word-break: break-word; overflow-wrap: break-word; }
+          .col-qty { width: 12%; text-align: center; white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
+          .col-price { width: 18%; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+          .col-tot { width: 20%; text-align: center; white-space: nowrap; font-weight: 800; font-variant-numeric: tabular-nums; }
 
           /* Totals Breakdown */
           .rec-totals-box {
@@ -1384,14 +1415,23 @@ export class DocumentRenderer {
             margin-bottom: 6px;
           }
 
-          /* Footer */
-          .rec-footer {
-            border-top: 1px dashed #94a3b8;
-            padding-top: 4px;
+          /* Minimal Unobtrusive Footer */
+          .rec-minimal-footer {
             text-align: center;
-            font-size: 8.5px;
-            font-weight: 800;
-            color: #13293d;
+            font-size: 8px;
+            color: #64748b;
+            opacity: 0.55;
+            margin-top: 8px;
+            padding: 0;
+            border: none !important;
+            background: transparent !important;
+            user-select: none;
+            clear: both;
+          }
+
+          .footer-dot {
+            margin: 0 4px;
+            color: #94a3b8;
           }
 
           @media print {
@@ -1468,25 +1508,25 @@ export class DocumentRenderer {
           <div class="rec-totals-box">
             <div class="rec-total-row">
               <span>إجمالي المواد:</span>
-              <span class="num-ltr font-mono">${subtotal.toLocaleString()} ${cur}</span>
+              <span class="num-ltr font-mono">${subtotal.toLocaleString('en-US')} ${cur}</span>
             </div>
             ${discount > 0 ? `
             <div class="rec-total-row" style="color: #dc2626;">
               <span>الخصم:</span>
-              <span class="num-ltr font-mono">-${discount.toLocaleString()} ${cur}</span>
+              <span class="num-ltr font-mono">-${discount.toLocaleString('en-US')} ${cur}</span>
             </div>` : ''}
             <div class="rec-total-row rec-grand-total">
               <span>الصافي:</span>
-              <span class="num-ltr font-mono">${netTotal.toLocaleString()} ${cur}</span>
+              <span class="num-ltr font-mono">${netTotal.toLocaleString('en-US')} ${cur}</span>
             </div>
             <div class="rec-total-row">
               <span>المدفوع:</span>
-              <span class="num-ltr font-mono bold" style="color: #16a34a;">${paid.toLocaleString()} ${cur}</span>
+              <span class="num-ltr font-mono bold" style="color: #16a34a;">${paid.toLocaleString('en-US')} ${cur}</span>
             </div>
             ${remaining > 0 ? `
             <div class="rec-total-row">
               <span>المتبقي:</span>
-              <span class="num-ltr font-mono bold" style="color: #dc2626;">${remaining.toLocaleString()} ${cur}</span>
+              <span class="num-ltr font-mono bold" style="color: #dc2626;">${remaining.toLocaleString('en-US')} ${cur}</span>
             </div>` : ''}
             <div class="rec-total-row">
               <span>عدد المواد:</span>
@@ -1505,9 +1545,10 @@ export class DocumentRenderer {
             <span>توقيع المستلم</span>
           </div>
 
-          <!-- Official DUBSAR Footer -->
-          <div class="rec-footer">
-            نظام DUBSAR لإدارة المبيعات • 07858833838
+          <!-- Minimal Unobtrusive 80mm Footer -->
+          <div class="rec-minimal-footer">
+            <span>اسم النظام: DUBSAR</span>
+            ${phone ? `<span class="footer-dot">•</span><span>رقم الهاتف: <span class="num-ltr">${phone}</span></span>` : ''}
           </div>
         </div>
       </body>
@@ -1634,19 +1675,19 @@ export class DocumentRenderer {
         currency: raw.currency || 'د.ع',
       },
       printOptions: {
-        fontScale: settings.fontScale || settings.printFontScale || 'medium',
-        showLogo: settings.showLogo !== undefined ? Boolean(settings.showLogo) : (settings.showCompanyLogo !== undefined ? Boolean(settings.showCompanyLogo) : true),
-        showItemIndex: settings.showItemIndex !== undefined ? Boolean(settings.showItemIndex) : true,
-        showBarcode: settings.showBarcode !== undefined ? Boolean(settings.showBarcode) : (settings.showBarcodeOnInvoice !== undefined ? Boolean(settings.showBarcodeOnInvoice) : true),
-        showUnit: settings.showUnit !== undefined ? Boolean(settings.showUnit) : true,
-        showDiscount: settings.showDiscount !== undefined ? Boolean(settings.showDiscount) : true,
-        showQrCode: settings.showQrCode !== undefined ? Boolean(settings.showQrCode) : true,
-        showCashierName: settings.showCashierName !== undefined ? Boolean(settings.showCashierName) : true,
-        showCustomerBalance: settings.showCustomerBalance !== undefined ? Boolean(settings.showCustomerBalance) : true,
-        showPreviousBalance: settings.showPreviousBalance !== undefined ? Boolean(settings.showPreviousBalance) : true,
-        showSignatures: settings.showSignatures !== undefined ? Boolean(settings.showSignatures) : true,
-        showOrganizerName: settings.showOrganizerName !== undefined ? Boolean(settings.showOrganizerName) : true,
-        showSupplierName: settings.showSupplierName !== undefined ? Boolean(settings.showSupplierName) : true,
+        fontScale: raw.printOptions?.fontScale ?? settings.fontScale ?? settings.printFontScale ?? 'medium',
+        showLogo: raw.printOptions?.showLogo !== undefined ? Boolean(raw.printOptions.showLogo) : (settings.showLogo !== undefined ? Boolean(settings.showLogo) : (settings.showCompanyLogo !== undefined ? Boolean(settings.showCompanyLogo) : true)),
+        showItemIndex: raw.printOptions?.showItemIndex !== undefined ? Boolean(raw.printOptions.showItemIndex) : (settings.showItemIndex !== undefined ? Boolean(settings.showItemIndex) : true),
+        showBarcode: raw.printOptions?.showBarcode !== undefined ? Boolean(raw.printOptions.showBarcode) : (settings.showBarcode !== undefined ? Boolean(settings.showBarcode) : (settings.showBarcodeOnInvoice !== undefined ? Boolean(settings.showBarcodeOnInvoice) : true)),
+        showUnit: raw.printOptions?.showUnit !== undefined ? Boolean(raw.printOptions.showUnit) : (settings.showUnit !== undefined ? Boolean(settings.showUnit) : true),
+        showDiscount: raw.printOptions?.showDiscount !== undefined ? Boolean(raw.printOptions.showDiscount) : (settings.showDiscount !== undefined ? Boolean(settings.showDiscount) : true),
+        showQrCode: raw.printOptions?.showQrCode !== undefined ? Boolean(raw.printOptions.showQrCode) : (settings.showQrCode !== undefined ? Boolean(settings.showQrCode) : true),
+        showCashierName: raw.printOptions?.showCashierName !== undefined ? Boolean(raw.printOptions.showCashierName) : (settings.showCashierName !== undefined ? Boolean(settings.showCashierName) : true),
+        showCustomerBalance: raw.printOptions?.showCustomerBalance !== undefined ? Boolean(raw.printOptions.showCustomerBalance) : (settings.showCustomerBalance !== undefined ? Boolean(settings.showCustomerBalance) : true),
+        showPreviousBalance: raw.printOptions?.showPreviousBalance !== undefined ? Boolean(raw.printOptions.showPreviousBalance) : (settings.showPreviousBalance !== undefined ? Boolean(settings.showPreviousBalance) : true),
+        showSignatures: raw.printOptions?.showSignatures !== undefined ? Boolean(raw.printOptions.showSignatures) : (settings.showSignatures !== undefined ? Boolean(settings.showSignatures) : true),
+        showOrganizerName: raw.printOptions?.showOrganizerName !== undefined ? Boolean(raw.printOptions.showOrganizerName) : (settings.showOrganizerName !== undefined ? Boolean(settings.showOrganizerName) : true),
+        showSupplierName: raw.printOptions?.showSupplierName !== undefined ? Boolean(raw.printOptions.showSupplierName) : (settings.showSupplierName !== undefined ? Boolean(settings.showSupplierName) : true),
       },
     };
   }

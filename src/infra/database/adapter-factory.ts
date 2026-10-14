@@ -7,16 +7,22 @@ import { DatabaseAdapter, DB_COMMANDS } from './adapter';
  * محول المعاينة (Browser Preview Adapter)
  */
 class MockAdapter implements DatabaseAdapter {
+  private static inMemoryStore: Record<string, any[]> = {};
+
   private async getStore(key: string): Promise<any[]> {
-    if (typeof window === 'undefined') return [];
+    if (typeof window === 'undefined') {
+      return MockAdapter.inMemoryStore[key] || [];
+    }
     const data = localStorage.getItem(`dubsar_mock_${key}`);
     return data ? JSON.parse(data) : [];
   }
 
   private async setStore(key: string, data: any[]) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(`dubsar_mock_${key}`, JSON.stringify(data));
+    if (typeof window === 'undefined') {
+      MockAdapter.inMemoryStore[key] = data;
+      return;
     }
+    localStorage.setItem(`dubsar_mock_${key}`, JSON.stringify(data));
   }
 
   async execute(command: string, args?: any): Promise<any> {
@@ -28,6 +34,17 @@ class MockAdapter implements DatabaseAdapter {
       products.push(newProduct);
       await this.setStore('products', products);
       return newProduct;
+    }
+
+    if (command === DB_COMMANDS.UPDATE_PRODUCT) {
+      const products = await this.getStore('products');
+      const idx = products.findIndex((p: any) => p.id === args.id);
+      if (idx >= 0) {
+        products[idx] = { ...products[idx], ...args.product, updatedAt: Date.now() };
+        await this.setStore('products', products);
+        return products[idx];
+      }
+      return { success: false, message: "المادة غير موجودة" };
     }
 
     if (command === DB_COMMANDS.LOGIN) {
@@ -90,7 +107,7 @@ class MockAdapter implements DatabaseAdapter {
 
     if (command === DB_COMMANDS.PROCESS_SALE) {
       const sales = await this.getStore('sales');
-      const invoiceNo = `POS-${Date.now().toString().slice(-6)}`;
+      const invoiceNo = args.payment?.invoiceNo || String((sales?.length || 0) + 1).padStart(4, '0');
       const newSale = {
         id: `sale_${Date.now()}`,
         invoiceNo,
