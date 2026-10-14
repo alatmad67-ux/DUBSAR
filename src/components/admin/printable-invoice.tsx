@@ -94,145 +94,145 @@ export function PrintableInvoice({
   const priceTypeArabic = priceType === 'wholesale' ? 'جملة' : priceType === 'agent' ? 'وكيل' : 'مفرد';
   const formattedTime = time || new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
 
-  // 1. 80mm THERMAL RECEIPT LAYOUT
+  // 1. 80mm THERMAL RECEIPT LAYOUT (71mm safe printable zone for all 80mm printer drivers)
   if (format === '80mm') {
     return (
       <div
         className={cn(
-          'bg-white text-black p-4 text-xs font-sans leading-relaxed select-none',
-          'w-[80mm] max-w-[80mm] mx-auto border border-dashed border-slate-300 print:border-none print:m-0 print:p-2',
+          'bg-white text-black px-2 py-1.5 text-[10.5px] font-sans leading-snug select-none',
+          'w-full max-w-[71mm] mx-auto border border-dashed border-slate-300 print:border-none print:m-0 print:px-[2mm] print:py-[1.5mm] print:max-w-[71mm] print:h-auto overflow-hidden',
           className
         )}
         dir="rtl"
       >
         {/* Header */}
-        <div className="text-center space-y-1 pb-2 border-b border-dashed border-slate-400">
+        <div className="text-center space-y-0.5 pb-1.5 border-b border-dashed border-black">
           {activeSettings?.logo && (
             <div className="flex justify-center mb-1">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={activeSettings.logo}
                 alt="شعار"
-                className="h-12 w-auto object-contain max-w-[120px]"
+                className="h-10 w-auto object-contain max-w-[110px]"
               />
             </div>
           )}
-          <h2 className="text-base font-black tracking-tight">{activeSettings?.businessName || 'مؤسسة دوبسار التجارية'}</h2>
+          <h2 className="text-sm font-black tracking-tight break-words">{activeSettings?.businessName || 'مؤسسة دوبسار التجارية'}</h2>
           {activeSettings?.address && (
-            <p className="text-[10px] text-slate-700">{activeSettings.address} {activeSettings.province ? `- ${activeSettings.province}` : ''}</p>
+            <p className="text-[9.5px] text-slate-800 break-words">{activeSettings.address} {activeSettings.province ? `- ${activeSettings.province}` : ''}</p>
           )}
           {(activeSettings?.phone1 || activeSettings?.phone2) && (
-            <p className="text-[10px] font-mono dir-ltr font-bold text-slate-700">
+            <p className="text-[9.5px] font-mono font-bold text-slate-900" dir="ltr">
               {activeSettings?.phone1} {activeSettings?.phone2 ? `| ${activeSettings.phone2}` : ''}
             </p>
           )}
-          <div className="inline-block px-3 py-0.5 mt-1 bg-black text-white text-[10px] font-black rounded">
-            فاتورة مبيعات نقدية / ذمم
+          <div className="inline-block px-2.5 py-0.5 mt-0.5 border border-black text-black text-[10px] font-black rounded">
+            فاتورة مبيعات
           </div>
         </div>
 
         {/* Meta info */}
-        <div className="py-2 text-[11px] space-y-0.5 border-b border-dashed border-slate-400">
-          <div className="flex justify-between">
-            <span className="font-bold">رقم القائمة:</span>
-            <span className="font-mono font-black">{invoiceNo}</span>
+        <div className="py-1.5 text-[10px] space-y-0.5 border-b border-dashed border-black">
+          <div className="flex justify-between items-start gap-1.5">
+            <span className="font-bold shrink-0">رقم القائمة:</span>
+            <span className="font-mono font-black text-left" dir="ltr">{invoiceNo}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="font-bold">التاريخ:</span>
-            <span>{date} {formattedTime}</span>
+          <div className="flex justify-between items-start gap-1.5">
+            <span className="font-bold shrink-0">التاريخ:</span>
+            <span className="font-mono text-left">{date} {formattedTime}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="font-bold">العميل:</span>
-            <span className="font-black">{customer?.name || 'زبون نقدي'}</span>
+          <div className="flex justify-between items-start gap-1.5">
+            <span className="font-bold shrink-0">العميل:</span>
+            <span className="font-black text-left break-words min-w-0">{customer?.name || 'زبون نقدي'}</span>
           </div>
           {customer?.phone && (
-            <div className="flex justify-between text-[10px]">
-              <span>الهاتف:</span>
-              <span className="font-mono">{customer.phone}</span>
+            <div className="flex justify-between items-start gap-1.5 text-[9.5px]">
+              <span className="shrink-0">الهاتف:</span>
+              <span className="font-mono text-left" dir="ltr">{customer.phone}</span>
             </div>
           )}
-          <div className="flex justify-between text-[10px]">
-            <span>الموظف:</span>
-            <span>{cashierName}</span>
-          </div>
-          <div className="flex justify-between text-[10px]">
-            <span>السعر:</span>
-            <span>{priceTypeArabic}</span>
+          <div className="flex justify-between items-start gap-1.5 text-[9.5px]">
+            <span className="shrink-0">المسؤول:</span>
+            <span className="text-left break-words">{cashierName} ({priceTypeArabic})</span>
           </div>
         </div>
 
         {/* Items Table */}
-        <table className="w-full text-right my-2 text-[11px]">
+        <table className="w-full table-fixed text-right my-1.5 text-[9.5px] border-collapse">
+          <colgroup>
+            <col className="w-[42%]" />
+            <col className="w-[14%]" />
+            <col className="w-[21%]" />
+            <col className="w-[23%]" />
+          </colgroup>
           <thead>
-            <tr className="border-b border-black font-black">
-              <th className="py-1">المادة</th>
-              <th className="py-1 text-center w-10">العدد</th>
-              <th className="py-1 text-center w-16">السعر</th>
-              <th className="py-1 text-left w-16">المجموع</th>
+            <tr className="border-y border-black font-black bg-slate-100">
+              <th className="py-1 px-0.5 text-right">المادة</th>
+              <th className="py-1 px-0.5 text-center">العدد</th>
+              <th className="py-1 px-0.5 text-center">السعر</th>
+              <th className="py-1 px-0.5 text-left">المجموع</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-dotted divide-slate-300">
+          <tbody className="divide-y divide-dashed divide-slate-400">
             {items.map((item, idx) => (
-              <tr key={idx} className="py-1">
-                <td className="py-1 font-bold">
-                  <div>{item.name}</div>
-                  {item.serialNo && <div className="text-[9px] text-slate-600 font-mono">سيريال: {item.serialNo}</div>}
+              <tr key={idx} className="align-top">
+                <td className="py-1 pl-1 font-bold break-words whitespace-normal leading-tight">
+                  <div className="break-words">{item.name}</div>
+                  {item.serialNo && <div className="text-[8px] text-slate-700 font-mono" dir="ltr">S/N: {item.serialNo}</div>}
                 </td>
-                <td className="py-1 text-center font-bold font-mono">{item.quantity}</td>
-                <td className="py-1 text-center font-mono">{Number(item.price).toLocaleString()}</td>
-                <td className="py-1 text-left font-black font-mono">{(item.quantity * item.price).toLocaleString()}</td>
+                <td className="py-1 px-0.5 text-center font-bold font-mono whitespace-nowrap" dir="ltr">{item.quantity}</td>
+                <td className="py-1 px-0.5 text-center font-mono whitespace-nowrap" dir="ltr">{Number(item.price).toLocaleString()}</td>
+                <td className="py-1 px-0.5 text-left font-black font-mono whitespace-nowrap" dir="ltr">{(item.quantity * item.price).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
         {/* Totals */}
-        <div className="pt-2 border-t-2 border-black space-y-1 text-xs">
-          <div className="flex justify-between">
-            <span className="font-bold">المجموع:</span>
-            <span className="font-mono">{subtotal.toLocaleString()} {currencySymbol}</span>
+        <div className="pt-1.5 border-t-[1.5px] border-black space-y-0.5 text-[10.5px]">
+          <div className="flex justify-between items-center gap-1.5">
+            <span className="font-bold shrink-0">المجموع:</span>
+            <span className="font-mono whitespace-nowrap" dir="ltr">{subtotal.toLocaleString()} {currencySymbol}</span>
           </div>
           {discountAmount > 0 && (
-            <div className="flex justify-between text-emerald-800">
-              <span className="font-bold">الخصم:</span>
-              <span className="font-mono">-{discountAmount.toLocaleString()} {currencySymbol}</span>
+            <div className="flex justify-between items-center gap-1.5 text-red-700">
+              <span className="font-bold shrink-0">الخصم:</span>
+              <span className="font-mono whitespace-nowrap" dir="ltr">-{discountAmount.toLocaleString()} {currencySymbol}</span>
             </div>
           )}
-          <div className="flex justify-between text-sm font-black border-t border-b border-black py-1">
-            <span>الصافي المطلوب:</span>
-            <span className="font-mono">{netTotal.toLocaleString()} {currencySymbol}</span>
+          <div className="flex justify-between items-center gap-1.5 text-xs font-black border-y-[1.5px] border-black py-1 my-0.5">
+            <span className="shrink-0">الصافي المطلوب:</span>
+            <span className="font-mono whitespace-nowrap" dir="ltr">{netTotal.toLocaleString()} {currencySymbol}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="font-bold">الواصل (المدفوع):</span>
-            <span className="font-mono font-bold">{paidAmount.toLocaleString()} {currencySymbol}</span>
+          <div className="flex justify-between items-center gap-1.5">
+            <span className="font-bold shrink-0">المدفوع (الواصل):</span>
+            <span className="font-mono font-bold whitespace-nowrap" dir="ltr">{paidAmount.toLocaleString()} {currencySymbol}</span>
           </div>
           {remaining > 0 && (
-            <div className="flex justify-between text-red-700 font-bold">
-              <span>الباقي (ذمة):</span>
-              <span className="font-mono">{remaining.toLocaleString()} {currencySymbol}</span>
+            <div className="flex justify-between items-center gap-1.5 text-red-700 font-black">
+              <span className="shrink-0">المتبقي (ذمة):</span>
+              <span className="font-mono whitespace-nowrap" dir="ltr">{remaining.toLocaleString()} {currencySymbol}</span>
             </div>
           )}
           {previousBalance > 0 && (
-            <div className="flex justify-between text-[11px] text-slate-700 border-t border-dotted border-slate-300 pt-1">
-              <span>الرصيد السابق:</span>
-              <span className="font-mono">{previousBalance.toLocaleString()} {currencySymbol}</span>
+            <div className="flex justify-between items-center gap-1.5 text-[10px] text-slate-800 border-t border-dotted border-slate-400 pt-0.5">
+              <span className="shrink-0">الرصيد السابق:</span>
+              <span className="font-mono whitespace-nowrap" dir="ltr">{previousBalance.toLocaleString()} {currencySymbol}</span>
             </div>
           )}
           {currentBalance > 0 && (
-            <div className="flex justify-between font-black text-xs">
-              <span>الرصيد الكلي:</span>
-              <span className="font-mono">{currentBalance.toLocaleString()} {currencySymbol}</span>
+            <div className="flex justify-between items-center gap-1.5 font-black text-[10.5px]">
+              <span className="shrink-0">الرصيد الكلي:</span>
+              <span className="font-mono whitespace-nowrap" dir="ltr">{currentBalance.toLocaleString()} {currencySymbol}</span>
             </div>
           )}
         </div>
 
         {/* Mandatory DUBSAR Footer */}
-        <div className="mt-3 pt-2 border-t border-dashed border-slate-400 text-center space-y-0.5">
-          <div className="font-mono text-xs tracking-widest font-black">*{invoiceNo}*</div>
-          <p className="text-[10px] text-slate-700 font-medium">{activeSettings?.footerText || 'شكراً لتعاملكم معنا • البضاعة المباعة لا ترد ولا تستبدل بعد 3 أيام'}</p>
-          <div className="pt-1 border-t border-slate-200 mt-1">
-            <p className="text-[10px] font-black text-slate-900">نظام DUBSAR لإدارة المبيعات</p>
-            <p className="text-[10px] font-mono font-bold text-slate-800">07858833838</p>
+        <div className="mt-2 pt-1.5 border-t border-dashed border-black text-center space-y-0.5">
+          <p className="text-[9px] text-slate-800 font-medium break-words leading-tight">{activeSettings?.footerText || 'شكراً لتعاملكم معنا • البضاعة المباعة لا ترد ولا تستبدل إلا بموجب هذه الفاتورة'}</p>
+          <div className="pt-1 border-t border-dotted border-slate-400 mt-1">
+            <p className="text-[8px] font-bold text-slate-600">نظام DUBSAR 2.0 لإدارة الأعمال والمخازن • وثيقة رسمية</p>
           </div>
         </div>
       </div>

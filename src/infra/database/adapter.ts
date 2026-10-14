@@ -45,6 +45,7 @@ export const DB_COMMANDS = {
   UPDATE_SALE: 'update_sale',
   GET_SYSTEM_PRINTERS: 'get_system_printers',
   PRINT_TEST_PAGE: 'print_test_page',
+  EXPORT_HTML_TO_PDF: 'export_html_to_pdf',
   LOG_AUDIT: 'log_audit',
   GET_AUDIT_LOGS: 'get_audit_logs',
   GET_SALES: 'get_sales',

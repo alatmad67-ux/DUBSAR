@@ -55,23 +55,37 @@ export default function PrintPreviewPage() {
         <style>
           @page {
             size: ${size === 'A4' ? 'A4 portrait' : size === '80mm' ? '80mm auto' : '58mm auto'};
-            margin: ${size === 'A4' ? '8mm' : '0'};
+            margin: ${size === 'A4' ? '8mm' : '0mm'};
           }
           * {
             box-sizing: border-box;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          body {
-            margin: 0;
-            padding: ${size === 'A4' ? '10mm' : '4mm'};
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, Tahoma, sans-serif;
+          html, body {
+            margin: 0 !important;
+            padding: ${size === 'A4' ? '10mm' : '1.5mm 2mm'};
+            width: 100%;
+            max-width: ${size === 'A4' ? 'none' : size === '80mm' ? '72mm' : '52mm'};
+            height: auto !important;
+            min-height: 0 !important;
+            font-family: Tahoma, Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background: #ffffff;
-            color: #0f172a;
-            font-size: 11px;
-            line-height: 1.4;
+            color: #000000;
+            font-size: ${size === 'A4' ? '11px' : '10px'};
+            line-height: 1.35;
+            direction: rtl;
+            overflow-x: hidden;
           }
-          table { width: 100%; border-collapse: collapse; }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: ${size === 'A4' ? 'auto' : 'fixed'};
+          }
+          td, th {
+            word-break: break-word;
+            overflow-wrap: break-word;
+          }
         </style>
       </head>
       <body>
@@ -120,17 +134,17 @@ export default function PrintPreviewPage() {
       </div>
 
       {/* Print Paper Area */}
-      <div className="flex justify-center p-4 md:p-8">
+      <div className="flex justify-center items-start p-4 md:p-8">
         <div 
           className={cn(
-            "bg-white shadow-2xl transition-all duration-500 origin-top overflow-hidden",
+            "bg-white shadow-2xl transition-all duration-500 origin-top overflow-hidden h-auto",
             size === 'A4' ? "w-[210mm] min-h-[297mm]" : 
-            size === '80mm' ? "w-[80mm] min-h-[150mm]" : 
-            "w-[58mm] min-h-[100mm]"
+            size === '80mm' ? "w-[80mm] max-w-[72mm] min-h-0" : 
+            "w-[58mm] max-w-[52mm] min-h-0"
           )}
           id="printable-document"
         >
-          <div className="p-6 md:p-10 text-slate-900 printable-area">
+          <div className={cn("text-slate-900 printable-area", size === 'A4' ? "p-6 md:p-10" : "p-2.5")}>
              {/* Header */}
              <div className="text-center space-y-2 mb-8 border-b pb-6">
                 <div className="relative h-20 w-40 mx-auto mb-2">

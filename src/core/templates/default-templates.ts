@@ -1,16 +1,16 @@
 import { DocumentTemplate, DocumentType, TemplateFormat } from './template-types';
 
 export const DOCUMENT_TITLES: Record<DocumentType, string> = {
-  sales_invoice: 'فاتورة مبيعات',
-  purchase_invoice: 'فاتورة شراء وتوريد',
-  sales_return: 'سند إرجاع مبيعات',
-  purchase_return: 'سند إرجاع مشتريات',
-  receipt_voucher: 'سند قبض مالي',
-  payment_voucher: 'سند صرف مالي',
-  transfer_voucher: 'سند مناقلة مخزنية',
+  sales_invoice: 'فاتورة بيع',
+  purchase_invoice: 'فاتورة شراء',
+  sales_return: 'مرتجع بيع',
+  purchase_return: 'مرتجع شراء',
+  receipt_voucher: 'سند قبض',
+  payment_voucher: 'سند صرف',
+  transfer_voucher: 'سند مناقلة',
   quotation: 'عرض أسعار',
-  sales_list: 'قائمة المبيعات',
-  purchase_list: 'قائمة المشتريات',
+  sales_list: 'قائمة مبيعات',
+  purchase_list: 'قائمة مشتريات',
   customer_statement: 'كشف حساب عميل',
   supplier_statement: 'كشف حساب مورد',
   profit_report: 'تقرير الأرباح والمالية'
@@ -26,8 +26,8 @@ export function createDefaultTemplate(documentType: DocumentType, format: Templa
     titleArabic,
     format,
     direction: 'rtl',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
-    primaryColor: '#0284c7',
+    fontFamily: "'Cairo', Tahoma, sans-serif",
+    primaryColor: '#13293d',
     sections: [
       {
         id: 'sec_logo',

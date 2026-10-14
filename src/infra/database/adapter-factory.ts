@@ -59,8 +59,19 @@ class MockAdapter implements DatabaseAdapter {
     }
 
     if (command === DB_COMMANDS.SAVE_APP_SETTINGS) {
-      await this.setStore('app_settings', [args.settings]);
-      return args.settings;
+      const existingList = await this.getStore('app_settings');
+      const existing = existingList[0] || {};
+      const incoming = args.settings || {};
+      const merged = {
+        ...existing,
+        ...incoming,
+        logo: incoming.logo ? incoming.logo : (incoming.clearLogo ? '' : (existing.logo || '')),
+        invoiceHeaderImage: incoming.invoiceHeaderImage
+          ? incoming.invoiceHeaderImage
+          : (incoming.clearHeaderImage ? '' : (existing.invoiceHeaderImage || '')),
+      };
+      await this.setStore('app_settings', [merged]);
+      return merged;
     }
 
     if (command === DB_COMMANDS.GET_APP_SETTINGS) {

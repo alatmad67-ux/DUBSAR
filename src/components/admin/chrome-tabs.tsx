@@ -124,7 +124,7 @@ export function ChromeTabs() {
 
   return (
     <div 
-      className="chrome-tabs-bar w-full bg-[#e2e8f0]/80 dark:bg-[#0f172a] border-b border-border/80 flex items-center px-3 pt-1.5 gap-1.5 overflow-x-auto select-none"
+      className="chrome-tabs-bar shrink-0 w-full bg-[#e2e8f0]/80 dark:bg-[#0f172a] border-b border-border/80 flex items-center px-3 pt-1.5 gap-1.5 overflow-x-auto select-none"
       style={{ scrollbarWidth: 'none' }}
       dir="rtl"
     >

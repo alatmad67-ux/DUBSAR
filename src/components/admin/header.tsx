@@ -132,7 +132,7 @@ export function AdminHeader() {
 
   return (
     <header 
-      className="chrome-tabs-bar sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b bg-background/95 px-4 backdrop-blur select-none cursor-default" 
+      className="chrome-tabs-bar shrink-0 sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b bg-background/95 px-4 backdrop-blur select-none cursor-default" 
       data-tauri-drag-region
       onDoubleClick={handleMaximize}
     >

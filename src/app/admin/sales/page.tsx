@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { PrintPreviewModal } from '@/components/admin/print-preview-modal';
 import { PrintableInvoice } from '@/components/admin/printable-invoice';
 import { PrintEngine } from '@/services/print-engine';
+import { LocalAuthService } from '@/services/local-auth-service';
 
 interface CartItem {
   id: string;
@@ -51,14 +52,18 @@ export default function ModernSalesPage() {
   const [invoiceDate, setInvoiceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [invoiceNo, setInvoiceNo] = useState<string>(() => {
     try {
-      const appSettings = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
-      const prefix = appSettings.invoicePrefix || 'INV-';
-      const lastSeq = Number(localStorage.getItem('dubsar_last_invoice_seq') || appSettings.invoiceStartNumber || 1000);
-      const nextSeq = lastSeq + 1;
+      const storedSeq = localStorage.getItem('dubsar_last_invoice_seq');
+      let nextSeq = 1;
+      if (storedSeq) {
+        const parsed = Number(storedSeq);
+        if (!isNaN(parsed) && parsed > 0) {
+          nextSeq = parsed >= 1000 ? (parsed - 1000 + 1) : (parsed + 1);
+        }
+      }
       localStorage.setItem('dubsar_last_invoice_seq', String(nextSeq));
-      return `${prefix}${nextSeq}`;
+      return String(nextSeq).padStart(4, '0');
     } catch {
-      return `INV-1001`;
+      return `0001`;
     }
   });
   const [currency, setCurrency] = useState<'IQD' | 'USD'>('IQD');
@@ -387,12 +392,16 @@ export default function ModernSalesPage() {
     setDiscountValue(0);
     setPaidAmount(0);
     setIsPaidManuallySet(false);
-    const appSettings = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
-    const prefix = appSettings.invoicePrefix || 'INV-';
-    const lastSeq = Number(localStorage.getItem('dubsar_last_invoice_seq') || appSettings.invoiceStartNumber || 1000);
-    const nextSeq = lastSeq + 1;
+    const storedSeq = localStorage.getItem('dubsar_last_invoice_seq');
+    let nextSeq = 1;
+    if (storedSeq) {
+      const parsed = Number(storedSeq);
+      if (!isNaN(parsed) && parsed > 0) {
+        nextSeq = parsed >= 1000 ? (parsed - 1000 + 1) : (parsed + 1);
+      }
+    }
     localStorage.setItem('dubsar_last_invoice_seq', String(nextSeq));
-    setInvoiceNo(`${prefix}${nextSeq}`);
+    setInvoiceNo(String(nextSeq).padStart(4, '0'));
     setInvoiceDate(new Date().toISOString().split('T')[0]);
     quickQueryInputRef.current?.focus();
   };
@@ -478,7 +487,7 @@ export default function ModernSalesPage() {
       if (autoPrint) {
         setTimeout(async () => {
           try {
-            const appSettings = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
+            const appSettings = await LocalAuthService.getUnifiedSettings();
             const format = appSettings.defaultPrintFormat || '80mm';
             const printPayload = {
               invoiceNo: savedSnapshot.invoiceNo,
@@ -513,8 +522,12 @@ export default function ModernSalesPage() {
               await PrintEngine.printA4Invoice(printPayload);
             }
           } catch (err) {
-            console.error(err);
-            window.print();
+            console.error('[Sales AutoPrint Error]:', err);
+            toast({
+              variant: 'destructive',
+              title: 'تنبيه الطباعة التلقائية',
+              description: err instanceof Error ? err.message : String(err)
+            });
           }
         }, 150);
       }
@@ -534,56 +547,56 @@ export default function ModernSalesPage() {
 
   return (
     <>
-      <div className="flex flex-col h-[calc(100vh-100px)] select-none bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 screen-only" dir="rtl">
+      <div className="flex flex-col h-[calc(100vh-138px)] min-h-[540px] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm select-none bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 screen-only" dir="rtl">
       {/* 1. TOP HEADER BAR: Invoice Metadata & Customer Info */}
-      <div className="p-3 bg-white dark:bg-slate-900 border-b shadow-sm space-y-2.5">
+      <div className="shrink-0 p-3 md:px-4 bg-white dark:bg-slate-900 border-b shadow-sm space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Right: Date and Invoice No */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-black text-slate-600 dark:text-slate-400">التاريخ:</span>
             <Input
               type="date"
               value={invoiceDate}
               onChange={(e) => setInvoiceDate(e.target.value)}
-              className="h-8 w-36 text-xs font-bold bg-slate-100 dark:bg-slate-800"
+              className="h-8 w-36 xl:w-40 text-xs font-bold bg-slate-100 dark:bg-slate-800"
             />
-            <span className="text-xs font-black text-slate-600 dark:text-slate-400 mr-2">رقم القائمة:</span>
+            <span className="text-xs font-black text-slate-600 dark:text-slate-400 mr-1">رقم القائمة:</span>
             <Input
               type="text"
               value={invoiceNo}
               onChange={(e) => setInvoiceNo(e.target.value)}
-              className="h-8 w-28 text-xs font-black text-center bg-slate-100 dark:bg-slate-800 text-primary"
+              className="h-8 w-28 xl:w-36 text-xs font-black text-center bg-slate-100 dark:bg-slate-800 text-primary"
             />
           </div>
 
           {/* Center: Currency & Price Type & Warehouse */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-black text-slate-600 dark:text-slate-400">العملة:</span>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value as any)}
-              className="h-8 px-2 text-xs font-bold rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+              className="h-8 px-2.5 text-xs font-bold rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
             >
               <option value="IQD">دينار عراقي (د.ع)</option>
               <option value="USD">دولار أمريكي ($)</option>
             </select>
 
-            <span className="text-xs font-black text-slate-600 dark:text-slate-400 mr-2">نوع السعر:</span>
+            <span className="text-xs font-black text-slate-600 dark:text-slate-400 mr-1">نوع السعر:</span>
             <select
               value={priceType}
               onChange={(e) => handlePriceTypeChange(e.target.value as any)}
-              className="h-8 px-2 text-xs font-bold rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+              className="h-8 px-2.5 text-xs font-bold rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
             >
               <option value="retail">مفرد</option>
               <option value="wholesale">جملة</option>
               <option value="agent">وكيل</option>
             </select>
 
-            <span className="text-xs font-black text-slate-600 dark:text-slate-400 mr-2">المخزن:</span>
+            <span className="text-xs font-black text-slate-600 dark:text-slate-400 mr-1">المخزن:</span>
             <select
               value={warehouseId}
               onChange={(e) => setWarehouseId(e.target.value)}
-              className="h-8 px-2 text-xs font-bold rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+              className="h-8 px-2.5 text-xs font-bold rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 min-w-[110px]"
             >
               {warehouses.map((w) => (
                 <option key={w.id} value={w.id}>
@@ -594,16 +607,16 @@ export default function ModernSalesPage() {
           </div>
 
           {/* Left: Quick Barcode Input */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">الباركود السريع:</span>
-            <div className="relative">
+          <div className="flex items-center gap-1.5 flex-1 sm:flex-initial justify-end min-w-[220px] max-w-sm">
+            <span className="text-xs font-black text-emerald-700 dark:text-emerald-400 shrink-0">الباركود السريع:</span>
+            <div className="relative flex-1 sm:w-56 xl:w-64">
               <Input
                 ref={barcodeInputRef}
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
                 onKeyDown={handleBarcodeScan}
                 placeholder="مسح الباركود والضغط Enter..."
-                className="h-8 w-48 text-xs pr-7 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700 focus-visible:ring-emerald-500"
+                className="h-8 w-full text-xs pr-7 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700 focus-visible:ring-emerald-500"
               />
               <Barcode className="h-3.5 w-3.5 text-emerald-600 absolute right-2 top-1/2 -translate-y-1/2 opacity-70" />
             </div>
@@ -611,14 +624,14 @@ export default function ModernSalesPage() {
         </div>
 
         {/* Customer Quick Fields Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-800">
-          <div className="flex items-center gap-1.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+          <div className="flex items-center gap-1.5 min-w-0">
             <Label className="text-xs font-bold text-slate-600 dark:text-slate-400 shrink-0">الحساب:</Label>
-            <div className="flex-1 flex gap-1">
+            <div className="flex-1 flex gap-1.5 min-w-0">
               <select
                 value={selectedCustomerId}
                 onChange={(e) => handleSelectCustomer(e.target.value)}
-                className="h-8 w-32 px-1.5 text-xs font-bold rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0"
+                className="h-8 w-32 xl:w-36 px-1.5 text-xs font-bold rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0"
               >
                 <option value="">زبون نقدي</option>
                 {customers.map((c) => (
@@ -636,45 +649,45 @@ export default function ModernSalesPage() {
                   }
                 }}
                 placeholder="اسم الزبون..."
-                className="h-8 text-xs font-bold bg-white dark:bg-slate-800 flex-1"
+                className="h-8 text-xs font-bold bg-white dark:bg-slate-800 flex-1 min-w-0"
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
             <Label className="text-xs font-bold text-slate-600 dark:text-slate-400 shrink-0">الهاتف:</Label>
             <Input
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
               placeholder="رقم الهاتف..."
-              className="h-8 text-xs font-bold bg-white dark:bg-slate-800"
+              className="h-8 text-xs font-bold bg-white dark:bg-slate-800 flex-1"
             />
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
             <Label className="text-xs font-bold text-slate-600 dark:text-slate-400 shrink-0">العنوان:</Label>
             <Input
               value={customerAddress}
               onChange={(e) => setCustomerAddress(e.target.value)}
               placeholder="العنوان أو المنطقة..."
-              className="h-8 text-xs font-bold bg-white dark:bg-slate-800"
+              className="h-8 text-xs font-bold bg-white dark:bg-slate-800 flex-1"
             />
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
             <Label className="text-xs font-bold text-slate-600 dark:text-slate-400 shrink-0">المدين:</Label>
             <Input
               value={customerDebtor}
               onChange={(e) => setCustomerDebtor(e.target.value)}
               placeholder="بيانات الكفيل / ملاحظة حساب..."
-              className="h-8 text-xs font-bold bg-white dark:bg-slate-800"
+              className="h-8 text-xs font-bold bg-white dark:bg-slate-800 flex-1"
             />
           </div>
         </div>
       </div>
 
       {/* 2. MINT GREEN ACCENT ROW: Fast Item Entry (Matching Reference Design) */}
-      <div className="bg-[#e8f5e9] dark:bg-emerald-950/40 border-b border-[#c8e6c9] dark:border-emerald-800/50 p-2.5 shadow-sm">
+      <div className="shrink-0 bg-[#e8f5e9] dark:bg-emerald-950/40 border-b border-[#c8e6c9] dark:border-emerald-800/50 p-2.5 md:px-4 shadow-sm">
         <div className="grid grid-cols-12 gap-2 items-center">
           {/* Item Search Autocomplete (5 Cols) */}
           <div className="col-span-12 lg:col-span-5 relative">
@@ -796,19 +809,19 @@ export default function ModernSalesPage() {
       </div>
 
       {/* 3. CENTER TABLE: Grid of Invoice Line Items */}
-      <div className="flex-1 overflow-auto bg-white dark:bg-slate-900">
+      <div className="flex-1 min-h-0 overflow-auto bg-white dark:bg-slate-900 custom-scrollbar">
         <table className="w-full text-right border-collapse text-xs">
           <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b shadow-sm font-black">
             <tr>
               <th className="p-2.5 w-10 text-center border-l">ت</th>
-              <th className="p-2.5 w-32 border-l">الباركود</th>
-              <th className="p-2.5 border-l">اسم المادة</th>
-              <th className="p-2.5 w-24 text-center border-l">العدد</th>
-              <th className="p-2.5 w-28 text-center border-l">سعر البيع</th>
-              <th className="p-2.5 w-28 text-center border-l">المجموع</th>
-              <th className="p-2.5 w-28 border-l">الرقم التسلسلي</th>
-              <th className="p-2.5 w-24 border-l">تاريخ النفاذية</th>
-              <th className="p-2.5 border-l">الملاحظة</th>
+              <th className="p-2.5 w-36 border-l">الباركود</th>
+              <th className="p-2.5 min-w-[200px] border-l">اسم المادة</th>
+              <th className="p-2.5 w-28 text-center border-l">العدد</th>
+              <th className="p-2.5 w-32 text-center border-l">سعر البيع</th>
+              <th className="p-2.5 w-32 text-center border-l">المجموع</th>
+              <th className="p-2.5 w-36 border-l">الرقم التسلسلي</th>
+              <th className="p-2.5 w-28 border-l">تاريخ النفاذية</th>
+              <th className="p-2.5 min-w-[140px] border-l">الملاحظة</th>
               <th className="p-2.5 w-12 text-center">حذف</th>
             </tr>
           </thead>
@@ -922,7 +935,7 @@ export default function ModernSalesPage() {
       </div>
 
       {/* 4. BOTTOM SUMMARY & ACTION BUTTONS BAR (Exact Model Matching) */}
-      <div className="bg-white dark:bg-slate-900 border-t p-3 shadow-lg flex flex-wrap items-center justify-between gap-4">
+      <div className="shrink-0 bg-white dark:bg-slate-900 border-t p-3 md:px-4 shadow-lg flex flex-wrap items-center justify-between gap-4">
         {/* Left Side: Green Badge Boxes for Subtotal & Net Total */}
         <div className="flex items-center gap-2">
           <div className="px-4 py-2 rounded-lg border-2 border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/50 text-center min-w-[130px]">

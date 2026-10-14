@@ -49,11 +49,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <SidebarProvider>
           <div className="flex h-screen w-full bg-[#FDF8F5] dark:bg-background/95 overflow-hidden" dir="rtl">
             <AdminSidebar />
-            <SidebarInset className="flex flex-col h-screen min-w-0 overflow-hidden">
-              <AdminHeader />
-              <ChromeTabs />
-              <main className="flex-1 p-4 md:p-6 overflow-y-auto">
-                <div className="mx-auto max-w-7xl w-full relative">
+            <SidebarInset className="flex flex-col flex-1 h-screen min-w-0 overflow-hidden">
+              <div className="shrink-0 z-30">
+                <AdminHeader />
+                <ChromeTabs />
+              </div>
+              <main className="flex-1 min-h-0 p-3 md:p-5 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                <div className="mx-auto w-full max-w-[1920px] relative">
                   {children}
                 </div>
               </main>

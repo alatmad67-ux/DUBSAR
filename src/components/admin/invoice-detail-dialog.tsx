@@ -28,6 +28,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PrintEngine } from '@/services/print-engine';
+import { LocalAuthService } from '@/services/local-auth-service';
 import { toast } from '@/hooks/use-toast';
 
 export interface InvoiceDetailProps {
@@ -51,6 +52,7 @@ export function InvoiceDetailDialog({ isOpen, onClose, invoice }: InvoiceDetailP
     barcode: item.barcode,
     quantity: Number(item.quantity) || 1,
     price: Number(item.price || item.unitPrice || item.unitCost) || 0,
+    discount: Number(item.discount || 0),
     unit: item.unit,
     serialNo: item.serialNo
   }));
@@ -68,7 +70,7 @@ export function InvoiceDetailDialog({ isOpen, onClose, invoice }: InvoiceDetailP
   const handlePrint = async (format: '80mm' | 'A4') => {
     setPrintingFormat(format);
     try {
-      const appSettings = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
+      const appSettings = await LocalAuthService.getUnifiedSettings();
       const printData = {
         invoiceNo,
         date,
@@ -96,14 +98,14 @@ export function InvoiceDetailDialog({ isOpen, onClose, invoice }: InvoiceDetailP
       toast({ title: `تم إرسال الفاتورة للطابعة (${format})` });
     } catch (e) {
       console.error(e);
-      window.print();
+      toast({ variant: 'destructive', title: 'تعذرت الطباعة', description: String(e) });
     } finally {
       setPrintingFormat(null);
     }
   };
 
   const handleWhatsApp = () => {
-    const appSettings = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
+    const appSettings = LocalAuthService.getUnifiedSettingsSync();
     const businessName = appSettings.businessName || 'مؤسسة دوبسار';
     let phone = (customerPhone || '').replace(/\D/g, '');
     if (phone.startsWith('07')) {

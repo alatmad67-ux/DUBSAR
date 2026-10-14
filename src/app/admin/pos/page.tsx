@@ -22,6 +22,7 @@ import { InventoryService } from "@/services/inventory-service";
 import { POSService } from "@/services/pos-service";
 import { useRouter } from "next/navigation";
 import { PrintEngine } from "@/services/print-engine";
+import { LocalAuthService } from "@/services/local-auth-service";
 import { InvoiceDetailDialog } from "@/components/admin/invoice-detail-dialog";
 
 export default function POSPage() {
@@ -282,6 +283,11 @@ export default function POSPage() {
           });
         } catch (printErr) {
           console.error('Thermal print error:', printErr);
+          toast({
+            variant: "destructive",
+            title: "تنبيه الطباعة",
+            description: printErr instanceof Error ? printErr.message : "تم حفظ التعديل بنجاح، لكن تعذرت الطباعة الحرارية."
+          });
         }
 
         cancelEditMode();
@@ -302,10 +308,9 @@ export default function POSPage() {
         await loadLocalData(); // Refresh stock
 
         try {
-          const appSettings = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
+          const appSettings = await LocalAuthService.getUnifiedSettings();
           const remaining = Math.max(0, total - paid);
-
-          await PrintEngine.printThermalReceipt({
+          const printPayload = {
             invoiceNo: result?.invoiceNo || `POS-${Date.now().toString().slice(-6)}`,
             date: new Date().toLocaleDateString('ar-IQ'),
             time: new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' }),
@@ -329,7 +334,13 @@ export default function POSPage() {
             receivedAmount: paymentMethod === 'cash' ? (Number(receivedAmount) || total) : undefined,
             changeGiven: paymentMethod === 'cash' ? Math.max(0, (Number(receivedAmount) || total) - total) : undefined,
             businessSettings: appSettings
-          });
+          };
+
+          if (appSettings.defaultPrintFormat === 'A4') {
+            await PrintEngine.printA4Invoice(printPayload);
+          } else {
+            await PrintEngine.printThermalReceipt(printPayload);
+          }
         } catch (printError) {
           console.error('POS Thermal Print Error:', printError);
           toast({ variant: "destructive", title: "تنبيه الطباعة", description: "تم حفظ الفاتورة بنجاح، لكن تعذرت الطباعة الحرارية." });
@@ -449,13 +460,13 @@ export default function POSPage() {
   }, [historySales, historySearch]);
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden bg-background -m-4 md:-m-8 select-none" dir="rtl">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-138px)] min-h-[540px] rounded-2xl border border-border/80 overflow-hidden shadow-sm bg-background select-none" dir="rtl">
       {/* Left/Main Products & Top Bar Area */}
-      <div className="flex-1 flex flex-col p-3 md:p-6 overflow-y-auto">
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col p-3 md:p-5 overflow-y-auto custom-scrollbar">
         
         {/* EDIT MODE TOP BANNER */}
         {editingSale && (
-          <div className="bg-amber-500/15 border-2 border-amber-500/50 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md animate-in fade-in slide-in-from-top-2">
+          <div className="bg-amber-500/15 border-2 border-amber-500/50 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md animate-in fade-in slide-in-from-top-2 shrink-0">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
                 <AlertTriangle className="h-5 w-5" />
@@ -486,8 +497,8 @@ export default function POSPage() {
         )}
 
         {/* Top Controls: Search & Previous Invoices Button */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="relative flex-1">
+        <div className="flex items-center gap-3 mb-4 shrink-0">
+          <div className="relative flex-1 max-w-2xl">
             <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input 
               placeholder="ابحث باسم المادة أو امسح الباركود ثم اضغط Enter..." 
@@ -505,7 +516,7 @@ export default function POSPage() {
               loadHistorySales();
               setIsHistoryOpen(true);
             }}
-            className="h-12 rounded-xl px-4 font-black gap-2 border bg-white dark:bg-slate-900 shadow-sm hover:bg-primary/5 hover:text-primary transition-all shrink-0"
+            className="h-12 rounded-xl px-4 font-black gap-2 border bg-white dark:bg-slate-900 shadow-sm hover:bg-primary/5 hover:text-primary transition-all shrink-0 mr-auto"
             title="عرض قوائم البيع السابقة وتعديلها"
           >
             <History className="h-4 w-4 text-primary" />
@@ -514,13 +525,13 @@ export default function POSPage() {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3.5">
            {loading ? (
-             Array(10).fill(0).map((_, i) => <Skeleton key={i} className="aspect-square rounded-3xl" />)
+             Array(12).fill(0).map((_, i) => <Skeleton key={i} className="aspect-square rounded-3xl" />)
            ) : filteredProducts.map((p: any) => (
              <Card 
                key={p.id} 
-               className="group cursor-pointer overflow-hidden rounded-[24px] border-none shadow-sm hover:shadow-xl transition-all active:scale-95 bg-white dark:bg-slate-900" 
+               className="group cursor-pointer overflow-hidden rounded-[22px] border shadow-sm hover:shadow-xl transition-all active:scale-95 bg-white dark:bg-slate-900" 
                onClick={() => addToCart(p)}
              >
                <div className="relative aspect-square w-full bg-muted/40">
@@ -547,7 +558,7 @@ export default function POSPage() {
       </div>
 
       {/* Right/Cart Sidebar Area */}
-      <div className="hidden lg:flex w-[410px] flex-col bg-white dark:bg-slate-900 border-r shadow-2xl z-20">
+      <div className="flex lg:w-[390px] xl:w-[430px] shrink-0 flex-col bg-white dark:bg-slate-900 border-t lg:border-t-0 lg:border-r shadow-xl z-20 max-h-[45vh] lg:max-h-none">
          <div className="p-5 border-b flex items-center justify-between">
             <h2 className="text-lg font-black flex items-center gap-2">
               <ShoppingCart className="text-primary h-5 w-5" /> 

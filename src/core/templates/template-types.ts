@@ -73,11 +73,16 @@ export interface DocumentTemplate {
 export interface DocumentRenderData {
   business?: {
     name?: string;
+    businessType?: string;
+    slogan?: string;
     phone1?: string;
     phone2?: string;
     address?: string;
     logo?: string;
+    headerImage?: string;
     footerNotice?: string;
+    thankYouMessage?: string;
+    supportPhone?: string;
   };
   document?: {
     number?: string;
@@ -86,6 +91,8 @@ export interface DocumentRenderData {
     time?: string;
     cashierName?: string;
     paymentMethod?: string;
+    saleType?: string;
+    warehouse?: string;
     priceType?: string;
     notes?: string;
   };
@@ -103,11 +110,13 @@ export interface DocumentRenderData {
     quantity: number;
     unit?: string;
     price: number;
+    discount?: number;
     total: number;
     serialNo?: string;
     notes?: string;
   }>;
   totals?: {
+    itemCount?: number;
     subtotal?: number;
     discount?: number;
     netTotal: number;
@@ -116,6 +125,21 @@ export interface DocumentRenderData {
     receivedAmount?: number;
     changeGiven?: number;
     currency?: string;
+  };
+  printOptions?: {
+    fontScale?: 'small' | 'medium' | 'large';
+    showLogo?: boolean;
+    showItemIndex?: boolean;
+    showBarcode?: boolean;
+    showUnit?: boolean;
+    showDiscount?: boolean;
+    showQrCode?: boolean;
+    showCashierName?: boolean;
+    showCustomerBalance?: boolean;
+    showPreviousBalance?: boolean;
+    showSignatures?: boolean;
+    showOrganizerName?: boolean;
+    showSupplierName?: boolean;
   };
   reportData?: {
     startDate?: string;

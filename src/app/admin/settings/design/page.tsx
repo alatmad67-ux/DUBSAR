@@ -11,14 +11,9 @@ import {
   CheckCircle2, 
   Eye, 
   Sliders, 
-  QrCode, 
-  Barcode, 
   Building2, 
-  Phone, 
-  MapPin, 
-  Sparkles,
-  HelpCircle,
-  AlertCircle
+  Trash2,
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,17 +27,24 @@ import { toast } from '@/hooks/use-toast';
 import { LocalAuthService } from '@/services/local-auth-service';
 import { AdapterFactory } from '@/infra/database/adapter-factory';
 import { DB_COMMANDS } from '@/infra/database/adapter';
+import { TemplateService } from '@/core/templates/template-service';
+import { DocumentRenderer } from '@/core/templates/document-renderer';
+import { PrintEngine } from '@/services/print-engine';
+import { cn } from '@/lib/utils';
 
 export default function InvoiceDesignPage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isTestingPrinter, setIsTestingPrinter] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [systemPrinters, setSystemPrinters] = useState<any[]>([]);
+  const [clearHeaderRequested, setClearHeaderRequested] = useState(false);
+  const [clearLogoRequested, setClearLogoRequested] = useState(false);
 
   // Preview Mode: '80mm' thermal receipt vs 'A4' standard invoice
-  const [previewMode, setPreviewMode] = useState<'80mm' | 'A4'>('80mm');
+  const [previewMode, setPreviewMode] = useState<'80mm' | 'A4'>('A4');
 
-  // Core Business & Design Settings
+  // Unified Business & Design Settings
   const [settings, setSettings] = useState({
     businessName: 'مؤسسة دوبسار التجارية',
     businessType: 'تجارة عامة ومواد احتياطية',
@@ -51,14 +53,20 @@ export default function InvoiceDesignPage() {
     logo: '',
     invoiceHeaderImage: '',
     
-    // Invoice Layout Options
+    // Invoice Layout & Dynamic Columns Options
     defaultPrintFormat: '80mm' as '80mm' | 'A4',
     showLogo: true,
+    showItemIndex: true,
     showBarcode: true,
+    showUnit: true,
+    showDiscount: true,
     showQrCode: true,
     showCashierName: true,
     showCustomerBalance: true,
     showPreviousBalance: true,
+    showSignatures: true,
+    showOrganizerName: true,
+    showSupplierName: true,
     fontScale: 'medium' as 'small' | 'medium' | 'large',
     
     // Header & Footer Texts
@@ -80,35 +88,25 @@ export default function InvoiceDesignPage() {
   const loadAllSettings = async () => {
     setLoading(true);
     try {
-      // 1. Load SQLite App Settings
-      const appSettings = await LocalAuthService.getAppSettings().catch(() => null);
-      
-      // 2. Load Extended Design Settings from LocalStorage
-      let extendedSettings = {};
-      try {
-        const stored = localStorage.getItem('dubsar_invoice_settings');
-        if (stored) extendedSettings = JSON.parse(stored);
-      } catch {}
-
+      const unified = await LocalAuthService.getUnifiedSettings();
       setSettings((prev) => ({
         ...prev,
-        businessName: appSettings?.businessName || prev.businessName,
-        businessType: appSettings?.businessType || prev.businessType,
-        phone: appSettings?.phone || prev.phone,
-        address: appSettings?.address || prev.address,
-        logo: appSettings?.logo || prev.logo,
-        invoiceHeaderImage: appSettings?.invoiceHeaderImage || prev.invoiceHeaderImage,
-        ...extendedSettings,
+        ...unified,
+        phone: unified.phone || unified.phone1 || prev.phone,
+        defaultPrintFormat: unified.defaultPrintFormat || prev.defaultPrintFormat,
+        fontScale: unified.fontScale || prev.fontScale,
       }));
+      if (unified.defaultPrintFormat) {
+        setPreviewMode(unified.defaultPrintFormat);
+      }
 
-      // 3. Query System Printers via Tauri IPC
       const adapter = AdapterFactory.getAdapter();
       const printers = await adapter.execute(DB_COMMANDS.GET_SYSTEM_PRINTERS).catch(() => []);
       if (Array.isArray(printers)) {
         setSystemPrinters(printers);
       }
     } catch (e) {
-      console.error("Failed to load settings:", e);
+      console.error('Failed to load settings:', e);
     } finally {
       setLoading(false);
     }
@@ -122,34 +120,63 @@ export default function InvoiceDesignPage() {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setSettings((prev) => ({ ...prev, [field]: String(reader.result || '') }));
-      toast({ title: 'تم تحميل الصورة', description: 'تم تحديث الصورة في المعاينة الحية.' });
+      const dataUrl = String(reader.result || '');
+      setSettings((prev) => ({ ...prev, [field]: dataUrl }));
+      if (field === 'invoiceHeaderImage') {
+        setClearHeaderRequested(false);
+        setPreviewMode('A4');
+      } else {
+        setClearLogoRequested(false);
+      }
+      toast({ title: 'تم تحميل الصورة', description: 'تم تحديث الصورة في المعاينة الحية لمحرك الطباعة.' });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleClearImage = (field: 'logo' | 'invoiceHeaderImage') => {
+    setSettings((prev) => ({ ...prev, [field]: '' }));
+    if (field === 'invoiceHeaderImage') {
+      setClearHeaderRequested(true);
+    } else {
+      setClearLogoRequested(true);
+    }
+    toast({ title: 'تمت إزالة الصورة من المعاينة', description: 'اضغط "اعتماد وحفظ التصميم" لتثبيت التغيير.' });
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // 1. Save Core Settings in SQLite
-      await LocalAuthService.saveAppSettings({
-        businessName: settings.businessName,
-        businessType: settings.businessType,
-        phone: settings.phone,
-        address: settings.address,
-        logo: settings.logo || '',
-        invoiceHeaderImage: settings.invoiceHeaderImage || '',
-      });
+      const saved = await LocalAuthService.saveUnifiedSettings(
+        {
+          ...settings,
+          phone1: settings.phone,
+          defaultPrintSize: settings.defaultPrintFormat,
+          printFontScale: settings.fontScale,
+          showCompanyLogo: settings.showLogo,
+          showBarcodeOnInvoice: settings.showBarcode,
+          invoiceFooterNotes: settings.footerNotes,
+          footerText: settings.footerNotes,
+        },
+        {
+          clearHeaderImage: clearHeaderRequested && !settings.invoiceHeaderImage,
+          clearLogo: clearLogoRequested && !settings.logo,
+        }
+      );
 
-      // 2. Save Extended Invoice Design Settings in LocalStorage
-      localStorage.setItem('dubsar_invoice_settings', JSON.stringify(settings));
+      setSettings((prev) => ({
+        ...prev,
+        ...saved,
+        phone: saved.phone || saved.phone1 || prev.phone,
+      }));
+      setClearHeaderRequested(false);
+      setClearLogoRequested(false);
 
       toast({ 
         title: 'تم حفظ إعدادات وتصميم الفاتورة', 
-        description: 'تم اعتماد القالب الجديد وتطبيقه على كافة الفواتير والطباعة بنجاح.' 
+        description: 'تم توحيد وحفظ القالب والترويسة في قاعدة البيانات وتطبيقه على المعاينة والطباعة وPDF بنجاح.' 
       });
     } catch (e: any) {
-      console.error("Save error:", e);
+      console.error('Save error:', e);
       toast({ 
         variant: 'destructive', 
         title: 'خطأ في الحفظ', 
@@ -160,18 +187,69 @@ export default function InvoiceDesignPage() {
     }
   };
 
+  // Unified Sample Invoice Data passed to DocumentRenderer (Single Source of Truth)
+  const sampleRenderHtml = useMemo(() => {
+    const template = TemplateService.getTemplate('sales_invoice', previewMode);
+    return DocumentRenderer.renderToHtml(template, {
+      invoiceNo: '0001',
+      date: '2026/09/18',
+      time: '03:45 م',
+      customerName: 'شركة الرافدين للتجارة العامة',
+      customerPhone: '07801234567',
+      customerAddress: 'بغداد - المنصور',
+      cashierName: 'حبيب عبدالرزاق',
+      paymentMethod: 'credit',
+      saleType: 'آجل / ذمم',
+      warehouse: 'المستودع الرئيسي',
+      currency: 'IQD',
+      notes: 'يرجى فحص المواد عند الاستلام. البضاعة المباعة لا ترد ولا تستبدل إلا بموجب الفاتورة الأصلية.',
+      items: [
+        { name: 'فلتر زيت أصلي كوري', barcode: '88012345601', unit: 'قطعة', quantity: 2, price: 15000, discount: 0, total: 30000 },
+        { name: 'زيت محرك تخليقي بالكامل 5W30', barcode: '88012345602', unit: 'علبة 4 لتر', quantity: 1, price: 45000, discount: 5000, total: 40000 },
+        { name: 'طقم شمعات احتراق ليزر بلاتينيوم', barcode: '88012345603', unit: 'سيت', quantity: 4, price: 10000, discount: 0, total: 40000 },
+      ],
+      subtotal: 115000,
+      discountAmount: 5000,
+      netTotal: 110000,
+      paidAmount: 100000,
+      remaining: 10000,
+      previousBalance: 15000,
+      currentBalance: 25000,
+      businessSettings: {
+        ...settings,
+        phone1: settings.phone,
+        footerText: settings.footerNotes,
+      },
+    });
+  }, [previewMode, settings]);
+
   const handleTestPrint = async () => {
     setIsTestingPrinter(true);
     try {
-      const printer = previewMode === '80mm' ? settings.selectedThermalPrinter : settings.selectedA4Printer;
-      const adapter = AdapterFactory.getAdapter();
-      await adapter.execute(DB_COMMANDS.PRINT_TEST_PAGE, { printerName: printer || undefined });
-      toast({ title: 'تم إرسال أمر الطباعة', description: 'تم إرسال صفحة اختبار إلى الطابعة بنجاح.' });
+      await PrintEngine.printIsolatedHtml(sampleRenderHtml);
+      toast({ title: 'تم فتح طباعة القالب الفعلي', description: `تم إرسال قالب ${previewMode} الموحد إلى الطباعة.` });
     } catch (e: any) {
-      console.error("Test print error:", e);
-      toast({ variant: 'destructive', title: 'خطأ في الطباعة', description: e?.message || 'تعذر الوصول إلى الطابعة المحددة.' });
+      console.error('Test print error:', e);
+      toast({ variant: 'destructive', title: 'خطأ في الطباعة', description: e?.message || 'تعذر طباعة القالب.' });
     } finally {
       setIsTestingPrinter(false);
+    }
+  };
+
+  const handleExportSamplePdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      const res = await PrintEngine.exportToPdf(sampleRenderHtml, `Sample_Invoice_${previewMode}`);
+      if (res.path) {
+        toast({
+          title: 'تم تصدير وفتح ملف PDF بنجاح',
+          description: `تم الحفظ بدون ترويسة المتصفح في: ${res.path}`
+        });
+      }
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'تعذر تصدير PDF', description: e?.message || String(e) });
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -191,15 +269,25 @@ export default function InvoiceDesignPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">استوديو تصميم الفواتير والطباعة</h1>
             <Badge className="bg-primary/10 text-primary border-none font-black text-xs px-2.5 py-0.5 rounded-full">
-              DUBSAR Print Studio
+              Unified DocumentRenderer
             </Badge>
           </div>
           <p className="text-xs md:text-sm text-muted-foreground font-medium">
-            تخصيص هوية وترويسة الفواتير، اختيار الطابعات المحلية، وتعديل خيارات العرض مع معاينة فورية حية.
+            تخصيص ترويسة A4 العريضة، الأعمدة الديناميكية، وخيارات الطباعة مع معاينة حقيقية مطابقة 100% للطباعة وPDF.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleExportSamplePdf} 
+            disabled={isExportingPdf} 
+            className="rounded-xl h-11 px-4 font-bold text-xs gap-2 border-slate-300 dark:border-slate-700"
+          >
+            {isExportingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 text-sky-600" />}
+            <span>تصدير PDF تجريبي</span>
+          </Button>
+
           <Button 
             variant="outline" 
             onClick={handleTestPrint} 
@@ -207,7 +295,7 @@ export default function InvoiceDesignPage() {
             className="rounded-xl h-11 px-4 font-bold text-xs gap-2 border-slate-300 dark:border-slate-700"
           >
             {isTestingPrinter ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4 text-emerald-600" />}
-            <span>طباعة تجريبية</span>
+            <span>طباعة تجريبية ({previewMode})</span>
           </Button>
 
           <Button 
@@ -224,13 +312,15 @@ export default function InvoiceDesignPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left / Settings Controls (7 Cols) */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Card 1: Company Identity */}
+          {/* Card 1: Company Identity & Header Image */}
           <Card className="rounded-2xl border bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
             <CardHeader className="p-5 pb-3 border-b bg-slate-50/50 dark:bg-slate-800/40">
               <CardTitle className="text-base font-black flex items-center gap-2 text-primary">
                 <Building2 className="h-4 w-4" /> بيانات وترويسة المنشأة
               </CardTitle>
-              <CardDescription className="text-xs">المعلومات التي تظهر في رأس الفاتورة الرسمية والإيصال</CardDescription>
+              <CardDescription className="text-xs">
+                في حال رفع "ترويسة A4 العريضة"، ستظهر بعرض أعلى فاتورة A4 بالكامل بدلاً من الترويسة النصية الافتراضية
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-5 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -273,22 +363,56 @@ export default function InvoiceDesignPage() {
                 </div>
               </div>
 
-              {/* Logo and Header Uploads */}
+              {/* Logo and Wide A4 Header Uploads */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                 <div className="space-y-2">
-                  <Label className="font-bold text-xs block">شعار المحل (Logo)</Label>
-                  <label className="h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-pointer font-bold text-xs hover:border-primary transition-colors bg-slate-50 dark:bg-slate-800/50">
-                    <Upload className="h-4 w-4 text-primary" />
-                    <span>{settings.logo ? "تم اختيار الشعار (اضغط للتغيير)" : "رفع صورة الشعار"}</span>
+                  <div className="flex items-center justify-between">
+                    <Label className="font-bold text-xs">شعار المحل الصغير (Logo)</Label>
+                    {settings.logo && (
+                      <button
+                        type="button"
+                        onClick={() => handleClearImage('logo')}
+                        className="text-[11px] font-bold text-rose-600 hover:underline flex items-center gap-1"
+                      >
+                        <Trash2 className="h-3 w-3" /> إزالة
+                      </button>
+                    )}
+                  </div>
+                  <label className="h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 cursor-pointer font-bold text-xs hover:border-primary transition-colors bg-slate-50 dark:bg-slate-800/50 p-2">
+                    {settings.logo ? (
+                      <img src={settings.logo} alt="Logo" className="max-h-14 object-contain" />
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 text-primary" />
+                        <span>رفع صورة الشعار</span>
+                      </>
+                    )}
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e.target.files?.[0], 'logo')} />
                   </label>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="font-bold text-xs block">ترويسة A4 العريضة (Header Image)</Label>
-                  <label className="h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-pointer font-bold text-xs hover:border-primary transition-colors bg-slate-50 dark:bg-slate-800/50">
-                    <Upload className="h-4 w-4 text-primary" />
-                    <span>{settings.invoiceHeaderImage ? "تم اختيار الترويسة (اضغط للتغيير)" : "رفع ترويسة A4"}</span>
+                  <div className="flex items-center justify-between">
+                    <Label className="font-bold text-xs">ترويسة A4 العريضة (Header Image)</Label>
+                    {settings.invoiceHeaderImage && (
+                      <button
+                        type="button"
+                        onClick={() => handleClearImage('invoiceHeaderImage')}
+                        className="text-[11px] font-bold text-rose-600 hover:underline flex items-center gap-1"
+                      >
+                        <Trash2 className="h-3 w-3" /> إزالة الترويسة
+                      </button>
+                    )}
+                  </div>
+                  <label className="h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 cursor-pointer font-bold text-xs hover:border-primary transition-colors bg-slate-50 dark:bg-slate-800/50 p-2 overflow-hidden">
+                    {settings.invoiceHeaderImage ? (
+                      <img src={settings.invoiceHeaderImage} alt="A4 Header" className="w-full max-h-16 object-contain" />
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 text-primary" />
+                        <span>رفع ترويسة A4 عريضة (تحل محل الهيدر النصي)</span>
+                      </>
+                    )}
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e.target.files?.[0], 'invoiceHeaderImage')} />
                   </label>
                 </div>
@@ -296,13 +420,15 @@ export default function InvoiceDesignPage() {
             </CardContent>
           </Card>
 
-          {/* Card 2: Visibility & Layout Options */}
+          {/* Card 2: Dynamic Columns & Visibility Options */}
           <Card className="rounded-2xl border bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
             <CardHeader className="p-5 pb-3 border-b bg-slate-50/50 dark:bg-slate-800/40">
               <CardTitle className="text-base font-black flex items-center gap-2 text-primary">
-                <Sliders className="h-4 w-4" /> خيارات إظهار العناصر ومقاس الورق
+                <Sliders className="h-4 w-4" /> التحكم الديناميكي بأعمدة الجدول وعناصر الفاتورة
               </CardTitle>
-              <CardDescription className="text-xs">تحديد البيانات المعروضة داخل الفاتورة لتقليل الهدر أو زيادة التفاصيل</CardDescription>
+              <CardDescription className="text-xs">
+                عند إخفاء أي عمود في فاتورة A4، يتم إعادة توزيع عرض الأعمدة المتبقية تلقائياً لملء الصفحة بالكامل
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-5 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -343,17 +469,18 @@ export default function InvoiceDesignPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div className="text-xs font-black text-slate-700 dark:text-slate-300 pt-2">أعمدة جدول المواد (A4):</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
-                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">إظهار شعار المحل</span>
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">عمود التسلسل (#)</span>
                   <Switch 
-                    checked={settings.showLogo} 
-                    onCheckedChange={(val) => setSettings({ ...settings, showLogo: val })} 
+                    checked={settings.showItemIndex} 
+                    onCheckedChange={(val) => setSettings({ ...settings, showItemIndex: val })} 
                   />
                 </div>
 
                 <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
-                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">إظهار باركود الفاتورة</span>
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">عمود الباركود (Barcode)</span>
                   <Switch 
                     checked={settings.showBarcode} 
                     onCheckedChange={(val) => setSettings({ ...settings, showBarcode: val })} 
@@ -361,10 +488,29 @@ export default function InvoiceDesignPage() {
                 </div>
 
                 <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
-                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">إظهار رمز QR للتحقق</span>
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">عمود الوحدة (Unit)</span>
                   <Switch 
-                    checked={settings.showQrCode} 
-                    onCheckedChange={(val) => setSettings({ ...settings, showQrCode: val })} 
+                    checked={settings.showUnit} 
+                    onCheckedChange={(val) => setSettings({ ...settings, showUnit: val })} 
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">عمود الخصم (Discount)</span>
+                  <Switch 
+                    checked={settings.showDiscount} 
+                    onCheckedChange={(val) => setSettings({ ...settings, showDiscount: val })} 
+                  />
+                </div>
+              </div>
+
+              <div className="text-xs font-black text-slate-700 dark:text-slate-300 pt-2">عناصر الهيدر والأرصدة والتواقيع:</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">إظهار الشعار الصغير</span>
+                  <Switch 
+                    checked={settings.showLogo} 
+                    onCheckedChange={(val) => setSettings({ ...settings, showLogo: val })} 
                   />
                 </div>
 
@@ -385,10 +531,26 @@ export default function InvoiceDesignPage() {
                 </div>
 
                 <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
-                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">إظهار الرصيد السابق والمتبقي</span>
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">إظهار الرصيد السابق</span>
                   <Switch 
                     checked={settings.showPreviousBalance} 
                     onCheckedChange={(val) => setSettings({ ...settings, showPreviousBalance: val })} 
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">توقيع منظم الفاتورة</span>
+                  <Switch 
+                    checked={settings.showOrganizerName} 
+                    onCheckedChange={(val) => setSettings({ ...settings, showOrganizerName: val })} 
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">توقيع المستلم / العميل</span>
+                  <Switch 
+                    checked={settings.showSupplierName} 
+                    onCheckedChange={(val) => setSettings({ ...settings, showSupplierName: val })} 
                   />
                 </div>
               </div>
@@ -486,11 +648,11 @@ export default function InvoiceDesignPage() {
           </Card>
         </div>
 
-        {/* Right / Live Interactive Preview (5 Cols) */}
+        {/* Right / Unified Live DocumentRenderer Preview (5 Cols) */}
         <div className="lg:col-span-5 sticky top-20 space-y-3">
-          <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
+          <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2.5 rounded-xl border shadow-sm">
             <span className="font-black text-xs text-primary flex items-center gap-1.5">
-              <Eye className="h-3.5 w-3.5" /> المعاينة الحية للفاتورة
+              <Eye className="h-3.5 w-3.5" /> معاينة محرك الطباعة الفعلي ({previewMode})
             </span>
             <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
               <Button 
@@ -512,244 +674,34 @@ export default function InvoiceDesignPage() {
             </div>
           </div>
 
-          {/* PREVIEW CONTAINER */}
-          <div className="rounded-2xl border bg-slate-100 dark:bg-slate-950 p-4 flex justify-center shadow-inner overflow-hidden max-h-[750px] overflow-y-auto">
-            {previewMode === '80mm' ? (
-              /* Thermal 80mm Receipt Preview */
-              <div 
-                className="w-[290px] bg-white text-slate-900 p-4 rounded-lg shadow-md border font-sans text-right space-y-3 select-text"
-                style={{ fontSize: settings.fontScale === 'small' ? '10px' : settings.fontScale === 'large' ? '13px' : '11px' }}
-              >
-                {/* Header */}
-                <div className="text-center space-y-1 pb-2 border-b border-dashed border-slate-300">
-                  {settings.showLogo && settings.logo && (
-                    <img src={settings.logo} alt="Logo" className="h-12 w-12 object-contain mx-auto rounded-md mb-1" />
-                  )}
-                  <h3 className="font-black text-sm text-slate-900 tracking-tight">{settings.businessName}</h3>
-                  <p className="text-[10px] text-slate-600 font-bold">{settings.businessType}</p>
-                  <p className="text-[10px] text-slate-500 font-mono" dir="ltr">{settings.phone}</p>
-                  <p className="text-[10px] text-slate-500">{settings.address}</p>
-                </div>
-
-                {/* Invoice Meta */}
-                <div className="text-[10px] space-y-0.5 border-b border-dashed border-slate-300 pb-2">
-                  <div className="flex justify-between font-mono font-bold">
-                    <span>رقم الفاتورة:</span>
-                    <span>INV-2026-0891</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>التاريخ:</span>
-                    <span>19/09/2026 04:15 م</span>
-                  </div>
-                  {settings.showCashierName && (
-                    <div className="flex justify-between text-slate-600">
-                      <span>الكاشير:</span>
-                      <span>حبيب عبدالرزاق</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold text-slate-800">
-                    <span>الزبون:</span>
-                    <span>شركة الرافدين للتجارة</span>
-                  </div>
-                </div>
-
-                {/* Table Items */}
-                <table className="w-full text-right text-[10px] border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-300 font-black">
-                      <th className="py-1">المادة</th>
-                      <th className="py-1 text-center">العدد</th>
-                      <th className="py-1 text-left">السعر</th>
-                      <th className="py-1 text-left">الإجمالي</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-dashed divide-slate-200">
-                    <tr>
-                      <td className="py-1 font-bold">فلتر زيت أصلي</td>
-                      <td className="py-1 text-center font-mono">2</td>
-                      <td className="py-1 text-left font-mono">15,000</td>
-                      <td className="py-1 text-left font-mono font-bold">30,000</td>
-                    </tr>
-                    <tr>
-                      <td className="py-1 font-bold">زيت محرك سوبر 5W30</td>
-                      <td className="py-1 text-center font-mono">1</td>
-                      <td className="py-1 text-left font-mono">45,000</td>
-                      <td className="py-1 text-left font-mono font-bold">45,000</td>
-                    </tr>
-                    <tr>
-                      <td className="py-1 font-bold">شمعات احتراق بلاتينيوم</td>
-                      <td className="py-1 text-center font-mono">4</td>
-                      <td className="py-1 text-left font-mono">10,000</td>
-                      <td className="py-1 text-left font-mono font-bold">40,000</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* Totals */}
-                <div className="border-t-2 border-slate-900 pt-2 space-y-1 font-bold text-xs">
-                  <div className="flex justify-between">
-                    <span>المجموع الفرعي:</span>
-                    <span className="font-mono">115,000 د.ع</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600 text-[10px]">
-                    <span>الخصم:</span>
-                    <span className="font-mono">5,000 د.ع</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-black border-t border-dashed border-slate-300 pt-1 text-primary">
-                    <span>المبلغ الصافي:</span>
-                    <span className="font-mono">110,000 د.ع</span>
-                  </div>
-                  <div className="flex justify-between text-[11px] text-emerald-700">
-                    <span>المدفوع نقداً:</span>
-                    <span className="font-mono">100,000 د.ع</span>
-                  </div>
-                  <div className="flex justify-between text-[11px] text-red-600 font-black">
-                    <span>المتبقي في الذمة:</span>
-                    <span className="font-mono">10,000 د.ع</span>
-                  </div>
-
-                  {settings.showCustomerBalance && (
-                    <div className="border-t border-dashed border-slate-300 pt-1 text-[10px] text-slate-600">
-                      <div className="flex justify-between font-bold">
-                        <span>إجمالي رصيد العميل الحالي:</span>
-                        <span className="font-mono text-red-700">25,000 د.ع</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Barcode / QR */}
-                <div className="text-center pt-2 space-y-1">
-                  {settings.showBarcode && (
-                    <div className="flex flex-col items-center">
-                      <Barcode className="h-8 w-36 text-slate-800" />
-                      <span className="font-mono text-[9px] tracking-widest text-slate-500">INV-2026-0891</span>
-                    </div>
-                  )}
-                  {settings.showQrCode && (
-                    <div className="flex justify-center pt-1">
-                      <QrCode className="h-12 w-12 text-slate-800" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer Notes */}
-                <div className="text-center text-[9px] text-slate-500 pt-1 space-y-1 border-t border-dashed border-slate-300">
-                  <p className="leading-tight">{settings.footerNotes}</p>
-                  <p className="font-bold text-slate-800">{settings.thankYouMessage}</p>
-                  <p className="text-[8px] text-slate-400 font-mono">طُبع بواسطة نظام DUBSAR 2.0 المكتبي</p>
-                </div>
-              </div>
-            ) : (
-              /* A4 Standard Invoice Preview */
-              <div 
-                className="w-[380px] bg-white text-slate-900 p-6 rounded-lg shadow-md border font-sans text-right space-y-4 select-text"
-                style={{ fontSize: settings.fontScale === 'small' ? '10px' : settings.fontScale === 'large' ? '12px' : '11px' }}
-              >
-                {/* A4 Header Image or Info */}
-                {settings.invoiceHeaderImage ? (
-                  <img src={settings.invoiceHeaderImage} alt="Header" className="w-full h-16 object-cover rounded mb-2" />
-                ) : (
-                  <div className="flex items-center justify-between border-b pb-3">
-                    <div className="space-y-0.5">
-                      <h2 className="text-base font-black text-primary">{settings.businessName}</h2>
-                      <p className="text-[10px] text-slate-500 font-bold">{settings.businessType}</p>
-                      <p className="text-[10px] text-slate-500 font-mono" dir="ltr">{settings.phone}</p>
-                    </div>
-                    {settings.showLogo && settings.logo ? (
-                      <img src={settings.logo} alt="Logo" className="h-12 w-12 object-contain" />
-                    ) : (
-                      <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-black text-xs">
-                        شعار
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg text-[10px] font-bold">
-                  <div>
-                    <span className="text-slate-500">رقم الفاتورة: </span>
-                    <span className="font-mono text-primary font-black">INV-2026-0891</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">التاريخ: </span>
-                    <span>19 أيلول 2026</span>
-                  </div>
-                </div>
-
-                {/* Customer Details Box */}
-                <div className="border p-2.5 rounded-lg text-[10px] space-y-1 bg-slate-50/50">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">السيد / الشركة:</span>
-                    <span className="font-black text-slate-900">شركة الرافدين للتجارة العامة</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">رقم الهاتف:</span>
-                    <span className="font-mono" dir="ltr">07801234567</span>
-                  </div>
-                </div>
-
-                {/* A4 Table */}
-                <table className="w-full text-right text-[10px] border">
-                  <thead className="bg-slate-100 font-black">
-                    <tr className="border-b">
-                      <th className="p-1.5">ت</th>
-                      <th className="p-1.5">المادة</th>
-                      <th className="p-1.5 text-center">الكمية</th>
-                      <th className="p-1.5 text-left">السعر المفرد</th>
-                      <th className="p-1.5 text-left">المجموع</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y font-medium">
-                    <tr>
-                      <td className="p-1.5 font-mono">1</td>
-                      <td className="p-1.5 font-bold">فلتر زيت أصلي</td>
-                      <td className="p-1.5 text-center font-mono">2</td>
-                      <td className="p-1.5 text-left font-mono">15,000</td>
-                      <td className="p-1.5 text-left font-mono font-bold">30,000</td>
-                    </tr>
-                    <tr>
-                      <td className="p-1.5 font-mono">2</td>
-                      <td className="p-1.5 font-bold">زيت محرك سوبر 5W30</td>
-                      <td className="p-1.5 text-center font-mono">1</td>
-                      <td className="p-1.5 text-left font-mono">45,000</td>
-                      <td className="p-1.5 text-left font-mono font-bold">45,000</td>
-                    </tr>
-                    <tr>
-                      <td className="p-1.5 font-mono">3</td>
-                      <td className="p-1.5 font-bold">شمعات احتراق بلاتينيوم</td>
-                      <td className="p-1.5 text-center font-mono">4</td>
-                      <td className="p-1.5 text-left font-mono">10,000</td>
-                      <td className="p-1.5 text-left font-mono font-bold">40,000</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* A4 Summary */}
-                <div className="flex justify-between items-start pt-1">
-                  <div className="text-[9px] text-slate-500 max-w-[180px] leading-tight space-y-1">
-                    <p className="font-bold text-slate-700">شروط وملاحظات:</p>
-                    <p>{settings.footerNotes}</p>
-                    <p className="font-bold text-slate-800">{settings.thankYouMessage}</p>
-                  </div>
-
-                  <div className="w-[150px] border p-2 rounded-lg text-[10px] space-y-1 bg-slate-50">
-                    <div className="flex justify-between font-bold">
-                      <span>الإجمالي:</span>
-                      <span className="font-mono">115,000</span>
-                    </div>
-                    <div className="flex justify-between text-slate-500">
-                      <span>الخصم:</span>
-                      <span className="font-mono">5,000</span>
-                    </div>
-                    <div className="flex justify-between font-black text-primary border-t pt-1">
-                      <span>الصافي:</span>
-                      <span className="font-mono">110,000 د.ع</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+          {/* UNIFIED ENGINE PREVIEW CONTAINER */}
+          <div className="rounded-2xl border bg-slate-200/70 dark:bg-slate-950 p-3 flex justify-center shadow-inner overflow-y-auto max-h-[780px]">
+            <div
+              className={cn(
+                'bg-white shadow-xl rounded-sm overflow-hidden transition-all',
+                previewMode === '80mm' ? 'w-[80mm] max-w-[302px]' : 'w-full'
+              )}
+            >
+              <iframe
+                title="Live DocumentRenderer Preview"
+                srcDoc={sampleRenderHtml}
+                className="w-full border-none block"
+                onLoad={(e) => {
+                  try {
+                    const iframeEl = e.currentTarget;
+                    const docBody = iframeEl.contentWindow?.document?.body;
+                    if (docBody) {
+                      const contentHeight = Math.max(docBody.scrollHeight, docBody.offsetHeight, previewMode === 'A4' ? 620 : 220);
+                      iframeEl.style.height = `${contentHeight + 16}px`;
+                    }
+                  } catch {}
+                }}
+                style={{
+                  height: previewMode === 'A4' ? '680px' : '420px',
+                  minHeight: previewMode === 'A4' ? '520px' : '200px',
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>

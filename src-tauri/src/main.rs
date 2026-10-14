@@ -154,6 +154,93 @@ fn print_test_page(printer_name: Option<String>) -> Result<Value, String> {
     Ok(json!({ "success": true, "message": "تم إرسال صفحة الاختبار بنجاح" }))
 }
 
+#[command(rename_all = "camelCase")]
+fn export_html_to_pdf(html_content: String, filename: Option<String>) -> Result<Value, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+        let safe_name: String = filename
+            .unwrap_or_else(|| "Invoice".to_string())
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .collect();
+
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let temp_dir = std::env::temp_dir();
+        let temp_html_path = temp_dir.join(format!("dubsar_doc_{}_{}.html", safe_name, ts));
+        std::fs::write(&temp_html_path, html_content.as_bytes())
+            .map_err(|e| format!("تعذر إنشاء ملف الطباعة المؤقت: {e}"))?;
+
+        // Determine output directory (User Desktop\DUBSAR_Invoices or temp fallback)
+        let user_profile = std::env::var("USERPROFILE").unwrap_or_else(|_| ".".to_string());
+        let mut out_dir = std::path::PathBuf::from(&user_profile).join("Desktop").join("DUBSAR_Invoices");
+        if std::fs::create_dir_all(&out_dir).is_err() {
+            out_dir = temp_dir.clone();
+        }
+        let pdf_path = out_dir.join(format!("{}.pdf", safe_name));
+
+        // Find Microsoft Edge / Chromium executable on Windows
+        let edge_candidates = [
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        ];
+
+        let browser_exe = edge_candidates
+            .iter()
+            .find(|p| std::path::Path::new(p).exists())
+            .copied()
+            .ok_or_else(|| "لم يتم العثور على محرك Microsoft Edge لتحويل PDF".to_string())?;
+
+        let print_arg = format!("--print-to-pdf={}", pdf_path.to_string_lossy());
+        let html_url = format!("file:///{}", temp_html_path.to_string_lossy().replace('\\', "/"));
+
+        let status = Command::new(browser_exe)
+            .args(&[
+                "--headless",
+                "--disable-gpu",
+                "--no-pdf-header-footer",
+                &print_arg,
+                &html_url,
+            ])
+            .creation_flags(CREATE_NO_WINDOW)
+            .status()
+            .map_err(|e| format!("تعذر تشغيل محرك PDF: {e}"))?;
+
+        let _ = std::fs::remove_file(&temp_html_path);
+
+        if !status.success() || !pdf_path.exists() {
+            return Err("تعذر توليد ملف PDF".to_string());
+        }
+
+        // Open the generated PDF file automatically in the default viewer
+        let _ = Command::new("cmd")
+            .args(&["/C", "start", "", &pdf_path.to_string_lossy()])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
+
+        return Ok(json!({
+            "success": true,
+            "path": pdf_path.to_string_lossy().to_string(),
+            "message": "تم تصدير ملف PDF بنجاح بدون ترويسة المتصفح"
+        }));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (html_content, filename);
+        Err("تصدير PDF المباشر مدعوم على نظام Windows".to_string())
+    }
+}
+
 #[command]
 fn get_suppliers(database: State<'_, Database>) -> Result<Vec<Value>, String> { database.suppliers() }
 
@@ -365,6 +452,7 @@ fn main() {
             update_sale,
             get_system_printers,
             print_test_page,
+            export_html_to_pdf,
             log_audit,
             get_audit_logs,
             get_tasks,

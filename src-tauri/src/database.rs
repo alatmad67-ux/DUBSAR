@@ -254,12 +254,50 @@ impl Database {
     }
 
     pub fn save_app_settings(&self, settings: &Value) -> Result<Value, String> {
-        let business_name = required_string(settings, &["businessName", "business_name"])?;
-        let phone = required_string(settings, &["phone"])?;
-        let address = required_string(settings, &["address"])?;
-        let business_type = required_string(settings, &["businessType", "business_type"])?;
-        let logo = required_string(settings, &["logo"])?;
-        let invoice_header_image = required_string(settings, &["invoiceHeaderImage", "invoice_header_image"])?;
+        let existing = self.app_settings().unwrap_or_else(|_| json!({}));
+
+        let business_name = optional_string(settings, &["businessName", "business_name"])
+            .filter(|s| !s.is_empty())
+            .or_else(|| optional_string(&existing, &["businessName"]))
+            .unwrap_or_else(|| "مؤسسة دوبسار التجارية".to_string());
+
+        let phone = optional_string(settings, &["phone", "phone1"])
+            .or_else(|| optional_string(&existing, &["phone"]))
+            .unwrap_or_default();
+
+        let address = optional_string(settings, &["address"])
+            .or_else(|| optional_string(&existing, &["address"]))
+            .unwrap_or_default();
+
+        let business_type = optional_string(settings, &["businessType", "business_type"])
+            .filter(|s| !s.is_empty())
+            .or_else(|| optional_string(&existing, &["businessType"]))
+            .unwrap_or_else(|| "تجارة عامة".to_string());
+
+        let logo = match settings.get("logo") {
+            Some(v) if v.is_string() => {
+                let s = v.as_str().unwrap_or_default().trim().to_string();
+                if s.is_empty() && settings.get("clearLogo") != Some(&json!(true)) {
+                    optional_string(&existing, &["logo"]).unwrap_or_default()
+                } else {
+                    s
+                }
+            }
+            _ => optional_string(&existing, &["logo"]).unwrap_or_default(),
+        };
+
+        let invoice_header_image = match settings.get("invoiceHeaderImage").or_else(|| settings.get("invoice_header_image")) {
+            Some(v) if v.is_string() => {
+                let s = v.as_str().unwrap_or_default().trim().to_string();
+                if s.is_empty() && settings.get("clearHeaderImage") != Some(&json!(true)) {
+                    optional_string(&existing, &["invoiceHeaderImage"]).unwrap_or_default()
+                } else {
+                    s
+                }
+            }
+            _ => optional_string(&existing, &["invoiceHeaderImage"]).unwrap_or_default(),
+        };
+
         let connection = self.connection()?;
         connection.execute(
             "INSERT INTO app_settings (id, business_name, phone, address, business_type, logo, invoice_header_image) VALUES ('default', ?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(id) DO UPDATE SET business_name = excluded.business_name, phone = excluded.phone, address = excluded.address, business_type = excluded.business_type, logo = excluded.logo, invoice_header_image = excluded.invoice_header_image",

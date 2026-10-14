@@ -8,12 +8,15 @@
 import { DocumentType } from '@/core/templates/template-types';
 import { DocumentRenderer } from '@/core/templates/document-renderer';
 import { TemplateService } from '@/core/templates/template-service';
+import { AdapterFactory } from '@/infra/database/adapter-factory';
+import { DB_COMMANDS } from '@/infra/database/adapter';
 
 export interface InvoicePrintItem {
   name: string;
   barcode?: string;
   quantity: number;
   price: number;
+  discount?: number;
   total?: number;
   unit?: string;
   serialNo?: string;
@@ -41,12 +44,17 @@ export interface InvoicePrintData {
   currentBalance?: number;
   businessSettings?: {
     businessName?: string;
+    businessType?: string;
     phone1?: string;
     phone2?: string;
     address?: string;
     logo?: string;
+    invoiceHeaderImage?: string;
     footerText?: string;
+    footerNotes?: string;
     invoiceNotice?: string;
+    thankYouMessage?: string;
+    [key: string]: any;
   };
 }
 
@@ -237,54 +245,117 @@ export function generateCode128Svg(code: string, height: number = 40): string {
 export class PrintEngine {
   /**
    * Directly prints pure HTML content through an isolated iframe to bypass any app overflow-hidden limitations.
+   * Suppresses browser headers/footers by combining @page { margin: 0mm !important; } with blanking document.title.
    */
   static printIsolatedHtml(htmlContent: string): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       // Remove any existing print frame
       const oldFrame = document.getElementById('dubsar-print-frame');
       if (oldFrame) {
         oldFrame.remove();
       }
 
+      const isA4 = /size:\s*A4/i.test(htmlContent);
+
       const iframe = document.createElement('iframe');
       iframe.id = 'dubsar-print-frame';
       iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '0';
+      iframe.style.width = isA4 ? '210mm' : '80mm';
+      iframe.style.height = 'auto';
       iframe.style.border = 'none';
+      iframe.style.visibility = 'hidden';
+      iframe.style.pointerEvents = 'none';
       iframe.style.zIndex = '-9999';
 
       document.body.appendChild(iframe);
 
       const doc = iframe.contentWindow?.document;
       if (!doc) {
-        window.print();
-        resolve();
+        iframe.remove();
+        reject(new Error('تعذر تهيئة إطار الطباعة المعزول (Print Frame Unavailable).'));
         return;
       }
+
+      let hasPrinted = false;
+      const triggerPrint = () => {
+        if (hasPrinted) return;
+        hasPrinted = true;
+        setTimeout(() => {
+          const originalParentTitle = document.title;
+          try {
+            if (!iframe.contentWindow) {
+              throw new Error('نافذة الطباعة غير جاهزة.');
+            }
+            // Wait for any embedded base64/header images inside the iframe to finish decoding
+            const images = Array.from(iframe.contentWindow.document.images || []);
+            const readyPromises = images.map((img) =>
+              img.complete
+                ? Promise.resolve()
+                : new Promise<void>((res) => {
+                    img.onload = () => res();
+                    img.onerror = () => res();
+                  })
+            );
+
+            Promise.all(readyPromises).finally(() => {
+              try {
+                // Blank both parent and iframe document titles to prevent browser header title injection
+                document.title = '\u200B';
+                if (iframe.contentWindow?.document) {
+                  iframe.contentWindow.document.title = '\u200B';
+                }
+                iframe.contentWindow?.focus();
+                iframe.contentWindow?.print();
+              } finally {
+                setTimeout(() => {
+                  document.title = originalParentTitle;
+                  iframe.remove();
+                  resolve();
+                }, 1200);
+              }
+            });
+          } catch (err) {
+            document.title = originalParentTitle;
+            console.error('[PrintEngine Error]', err);
+            iframe.remove();
+            reject(err instanceof Error ? err : new Error(String(err)));
+          }
+        }, 250);
+      };
+
+      iframe.onload = triggerPrint;
 
       doc.open();
       doc.write(htmlContent);
       doc.close();
 
-      iframe.onload = () => {
-        setTimeout(() => {
-          try {
-            iframe.contentWindow?.focus();
-            iframe.contentWindow?.print();
-          } catch (err) {
-            console.error('[PrintEngine Error]', err);
-          } finally {
-            setTimeout(() => {
-              iframe.remove();
-              resolve();
-            }, 1000);
-          }
-        }, 250);
-      };
+      // Safety fallback if onload already fired synchronously on doc.close()
+      setTimeout(triggerPrint, 500);
     });
+  }
+
+  /**
+   * Exports rendered HTML directly to a clean PDF file using the native Tauri/Chromium engine
+   * with `--no-pdf-header-footer` (100% free of browser headers and footers), using the exact same
+   * DocumentRenderer output as preview and print.
+   */
+  static async exportToPdf(htmlContent: string, filename: string = 'Invoice'): Promise<{ path?: string }> {
+    try {
+      const adapter = AdapterFactory.getAdapter();
+      const res = await adapter.execute(DB_COMMANDS.EXPORT_HTML_TO_PDF, {
+        htmlContent,
+        filename,
+      });
+      if (res && res.success) {
+        return { path: res.path };
+      }
+    } catch (err) {
+      console.warn('[PrintEngine.exportToPdf] Native export fallback to print dialog:', err);
+    }
+    await this.printIsolatedHtml(htmlContent);
+    return {};
   }
 
   /**
@@ -305,9 +376,11 @@ export class PrintEngine {
   }
 
   /**
-   * Legacy raw thermal receipt fallback (if needed).
+   * Legacy raw thermal receipt fallback (delegates to unified 80mm renderer).
    */
   static async printThermalReceiptLegacy(data: InvoicePrintData): Promise<void> {
+    await this.printDocument('sales_invoice', data, '80mm');
+    return;
     const settings = data.businessSettings || {};
     const businessName = settings.businessName || 'مؤسسة دوبسار التجارية';
     const currency = data.currency === 'USD' ? '$' : 'د.ع';
@@ -482,10 +555,10 @@ export class PrintEngine {
           <span class="font-mono font-bold">${data.subtotal.toLocaleString()} ${currency}</span>
         </div>
 
-        ${(data.discountAmount && data.discountAmount > 0) ? `
+        ${(Number(data.discountAmount || 0) > 0) ? `
         <div class="total-row" style="color: #000;">
           <span>الخصم:</span>
-          <span class="font-mono">-${data.discountAmount.toLocaleString()} ${currency}</span>
+          <span class="font-mono">-${Number(data.discountAmount).toLocaleString()} ${currency}</span>
         </div>` : ''}
 
         <div class="total-row total-highlight">
@@ -498,27 +571,27 @@ export class PrintEngine {
           <span class="font-mono font-bold">${(data.paidAmount ?? data.netTotal).toLocaleString()} ${currency}</span>
         </div>
 
-        ${(data.receivedAmount && data.receivedAmount > data.netTotal) ? `
+        ${(Number(data.receivedAmount || 0) > data.netTotal) ? `
         <div class="total-row">
           <span>المستلم نقداً:</span>
-          <span class="font-mono">${data.receivedAmount.toLocaleString()} ${currency}</span>
+          <span class="font-mono">${Number(data.receivedAmount).toLocaleString()} ${currency}</span>
         </div>
         <div class="total-row" style="font-weight: 900; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 2px 0; margin: 2px 0;">
           <span>الباقي للزبون:</span>
-          <span class="font-mono font-bold">${(data.changeGiven ?? (data.receivedAmount - data.netTotal)).toLocaleString()} ${currency}</span>
+          <span class="font-mono font-bold">${(data.changeGiven ?? (Number(data.receivedAmount) - data.netTotal)).toLocaleString()} ${currency}</span>
         </div>` : ''}
 
-        ${(data.remaining && data.remaining > 0) ? `
+        ${(Number(data.remaining || 0) > 0) ? `
         <div class="total-row" style="font-weight: bold;">
           <span>المتبقي (ذمة):</span>
-          <span class="font-mono">${data.remaining.toLocaleString()} ${currency}</span>
+          <span class="font-mono">${Number(data.remaining).toLocaleString()} ${currency}</span>
         </div>` : ''}
 
-        ${(data.currentBalance && data.currentBalance > 0) ? `
+        ${(Number(data.currentBalance || 0) > 0) ? `
         <div class="dashed-line"></div>
         <div class="total-row font-bold">
           <span>الرصيد الكلي:</span>
-          <span class="font-mono">${data.currentBalance.toLocaleString()} ${currency}</span>
+          <span class="font-mono">${Number(data.currentBalance).toLocaleString()} ${currency}</span>
         </div>` : ''}
 
         <div class="dashed-line"></div>
@@ -552,6 +625,8 @@ export class PrintEngine {
    * Legacy raw A4 invoice fallback (if needed).
    */
   static async printA4InvoiceLegacy(data: InvoicePrintData): Promise<void> {
+    await this.printDocument('sales_invoice', data, 'A4');
+    return;
     const settings = data.businessSettings || {};
     const businessName = settings.businessName || 'مؤسسة دوبسار التجارية';
     const currency = data.currency === 'USD' ? '$' : 'د.ع';
@@ -722,10 +797,10 @@ export class PrintEngine {
               <span>المجموع الكلي:</span>
               <span style="font-family: monospace; font-weight: bold;">${data.subtotal.toLocaleString()} ${currency}</span>
             </div>
-            ${(data.discountAmount && data.discountAmount > 0) ? `
+            ${(Number(data.discountAmount || 0) > 0) ? `
             <div class="summary-row" style="color: #16a34a;">
               <span>الخصم الممنوح:</span>
-              <span style="font-family: monospace;">-${data.discountAmount.toLocaleString()} ${currency}</span>
+              <span style="font-family: monospace;">-${Number(data.discountAmount).toLocaleString()} ${currency}</span>
             </div>` : ''}
             <div class="summary-row summary-total">
               <span>الصافي المطلوب:</span>
@@ -735,15 +810,15 @@ export class PrintEngine {
               <span>المبلغ المدفوع (الواصل):</span>
               <span style="font-family: monospace; font-weight: bold;">${(data.paidAmount ?? data.netTotal).toLocaleString()} ${currency}</span>
             </div>
-            ${(data.remaining && data.remaining > 0) ? `
+            ${(Number(data.remaining || 0) > 0) ? `
             <div class="summary-row" style="color: #dc2626; font-weight: bold;">
               <span>المتبقي (الذمة):</span>
-              <span style="font-family: monospace;">${data.remaining.toLocaleString()} ${currency}</span>
+              <span style="font-family: monospace;">${Number(data.remaining).toLocaleString()} ${currency}</span>
             </div>` : ''}
-            ${(data.currentBalance && data.currentBalance > 0) ? `
+            ${(Number(data.currentBalance || 0) > 0) ? `
             <div class="summary-row" style="border-top: 1px dashed #cbd5e1; margin-top: 4px; padding-top: 4px; font-weight: bold;">
               <span>الرصيد الكلي بذمة العميل:</span>
-              <span style="font-family: monospace;">${data.currentBalance.toLocaleString()} ${currency}</span>
+              <span style="font-family: monospace;">${Number(data.currentBalance).toLocaleString()} ${currency}</span>
             </div>` : ''}
           </div>
         </div>

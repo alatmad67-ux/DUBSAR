@@ -60,6 +60,7 @@ interface SettingsState {
   commercialRecord: string;
   taxNumber: string;
   logo: string;
+  invoiceHeaderImage?: string;
 
   invoicePrefix: string;
   invoiceStartNumber: number;
@@ -76,6 +77,11 @@ interface SettingsState {
   showPreviousBalance: boolean;
   showBarcodeOnInvoice: boolean;
   showCashierName: boolean;
+  showItemIndex?: boolean;
+  showUnit?: boolean;
+  showDiscount?: boolean;
+  showOrganizerName?: boolean;
+  showSupplierName?: boolean;
   printFontScale: 'small' | 'medium' | 'large';
 
   selectedThermalPrinter: string;
@@ -134,6 +140,7 @@ const DEFAULT_SETTINGS: SettingsState = {
   commercialRecord: '',
   taxNumber: '',
   logo: '',
+  invoiceHeaderImage: '',
 
   invoicePrefix: 'INV-',
   invoiceStartNumber: 1001,
@@ -150,6 +157,11 @@ const DEFAULT_SETTINGS: SettingsState = {
   showPreviousBalance: true,
   showBarcodeOnInvoice: true,
   showCashierName: true,
+  showItemIndex: true,
+  showUnit: true,
+  showDiscount: true,
+  showOrganizerName: true,
+  showSupplierName: true,
   printFontScale: 'medium',
 
   selectedThermalPrinter: '',
@@ -277,22 +289,16 @@ export default function ComprehensiveSettingsPage() {
   const adapter = AdapterFactory.getAdapter();
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('dubsar_app_settings');
-      if (stored) {
-        setSettings((prev) => ({ ...prev, ...JSON.parse(stored) }));
-      }
-    } catch {}
+    const syncInitial = LocalAuthService.getUnifiedSettingsSync();
+    setSettings((prev) => ({ ...prev, ...syncInitial }));
 
-    LocalAuthService.getAppSettings()
-      .then((data) => {
-        if (data && typeof data === 'object') {
+    LocalAuthService.getUnifiedSettings()
+      .then((unified) => {
+        if (unified && typeof unified === 'object') {
           setSettings((prev) => ({
             ...prev,
-            businessName: data.businessName || prev.businessName,
-            phone1: data.phone || prev.phone1,
-            address: data.address || prev.address,
-            logo: data.logo || prev.logo
+            ...unified,
+            phone1: unified.phone1 || unified.phone || prev.phone1,
           }));
         }
       })
@@ -358,22 +364,20 @@ export default function ComprehensiveSettingsPage() {
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      localStorage.setItem('dubsar_app_settings', JSON.stringify(settings));
-
-      try {
-        await LocalAuthService.saveAppSettings({
-          businessName: settings.businessName || 'مؤسسة دوبسار',
-          phone: settings.phone1 || '',
-          address: settings.address || '',
-          businessType: 'commercial',
-          logo: settings.logo || '',
-          invoiceHeaderImage: ''
-        });
-      } catch {}
+      const saved = await LocalAuthService.saveUnifiedSettings({
+        ...settings,
+        phone: settings.phone1 || '',
+        defaultPrintSize: settings.defaultPrintFormat,
+        fontScale: settings.printFontScale,
+        showLogo: settings.showCompanyLogo,
+        showBarcode: settings.showBarcodeOnInvoice,
+        footerNotes: settings.invoiceFooterNotes,
+      });
+      setSettings((prev) => ({ ...prev, ...saved }));
 
       toast({
         title: 'تم حفظ كافة الإعدادات بنجاح',
-        description: 'تم تحديث خيارات المنشأة والطابعات والفواتير محلياً.'
+        description: 'تم تحديث خيارات المنشأة والطابعات والفواتير محلياً مع الحفاظ على ترويسة وتصميم الفاتورة.'
       });
     } catch (error) {
       toast({

@@ -274,46 +274,94 @@ export default function ProductsManagementPage() {
         </div>
       </div>
 
-      <div className="relative max-w-md" dir="rtl">
-        <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input placeholder="بحث..." className="h-14 rounded-2xl pr-12 border-none shadow-sm bg-white" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border shadow-sm" dir="rtl">
+        <div className="relative flex-1 min-w-[240px] max-w-xl">
+          <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="بحث باسم المادة أو الباركود..."
+            className="h-10 rounded-xl pr-10 font-bold text-xs"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="text-xs font-bold text-muted-foreground px-2">
+          إجمالي المواد المعروضة: <span className="font-black text-primary font-mono">{filteredProducts.length}</span>
+        </div>
       </div>
 
-      <div className="rounded-[32px] border-none bg-white shadow-sm overflow-hidden" dir="rtl">
+      <div className="rounded-2xl border bg-white dark:bg-slate-900 shadow-sm overflow-x-auto" dir="rtl">
         <Table>
-          <TableHeader className="bg-muted/30">
+          <TableHeader className="bg-slate-100/80 dark:bg-slate-800/80">
             <TableRow>
-              <TableHead className="text-right py-6 px-6 font-black">المنتج</TableHead>
-              <TableHead className="text-right font-black">الأسعار</TableHead>
-              <TableHead className="text-right font-black">المخزون</TableHead>
-              <TableHead className="text-left px-6 font-black">إجراءات</TableHead>
+              <TableHead className="text-right py-3.5 px-5 font-black min-w-[220px]">اسم المادة</TableHead>
+              <TableHead className="text-right font-black w-40">الباركود</TableHead>
+              <TableHead className="text-right font-black w-36">الماركة</TableHead>
+              <TableHead className="text-center font-black w-36">سعر الشراء</TableHead>
+              <TableHead className="text-center font-black w-36">سعر البيع (مفرد)</TableHead>
+              <TableHead className="text-center font-black w-36">سعر الجملة</TableHead>
+              <TableHead className="text-center font-black w-32">المخزون</TableHead>
+              <TableHead className="text-left px-5 font-black w-36">إجراءات</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              Array(3).fill(0).map((_, i) => <TableRow key={i}><TableCell colSpan={4} className="p-8"><Skeleton className="h-10 w-full" /></TableCell></TableRow>)
-            ) : filteredProducts.map((p: any) => (
-              <TableRow key={p.id} className="hover:bg-muted/5">
-                <TableCell className="px-6 font-bold">{p.name}</TableCell>
-                <TableCell className="font-black text-primary">{p.retailPrice?.toLocaleString()} د.ع</TableCell>
-                <TableCell className="font-black">{p.stockQuantity} قطعة</TableCell>
-                <TableCell className="text-left px-6">
-                  <div className="flex gap-2">
-                    <Link href={`/admin/products/barcode?productId=${p.id}`}>
-                      <Button variant="ghost" size="icon" title="طباعة ملصق باركود">
-                        <Barcode className="h-4 w-4 text-primary" />
-                      </Button>
-                    </Link>
-                    <Button variant="ghost" size="icon" title="تعديل المادة" onClick={() => openEditDialog(p)}>
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="text-destructive" title="حذف" onClick={() => handleDelete(p.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+              Array(4).fill(0).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell colSpan={8} className="p-6">
+                    <Skeleton className="h-9 w-full" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : filteredProducts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="p-10 text-center text-muted-foreground font-bold text-xs">
+                  لا توجد مواد مسجلة مطابقة للبحث
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredProducts.map((p: any) => (
+                <TableRow key={p.id} className="hover:bg-muted/15 transition-colors">
+                  <TableCell className="px-5 py-3 font-black text-slate-900 dark:text-slate-100">
+                    {p.name}
+                  </TableCell>
+                  <TableCell className="py-3 font-mono text-xs text-muted-foreground">
+                    {p.barcode || '-'}
+                  </TableCell>
+                  <TableCell className="py-3 text-xs font-bold text-muted-foreground">
+                    {p.brand || '-'}
+                  </TableCell>
+                  <TableCell className="py-3 text-center font-mono text-xs font-bold text-slate-600 dark:text-slate-400">
+                    {Number(p.purchasePrice || 0).toLocaleString()} د.ع
+                  </TableCell>
+                  <TableCell className="py-3 text-center font-mono font-black text-primary">
+                    {Number(p.retailPrice || 0).toLocaleString()} د.ع
+                  </TableCell>
+                  <TableCell className="py-3 text-center font-mono text-xs font-bold">
+                    {p.wholesalePrice ? `${Number(p.wholesalePrice).toLocaleString()} د.ع` : '-'}
+                  </TableCell>
+                  <TableCell className="py-3 text-center font-black font-mono">
+                    <Badge variant={Number(p.stockQuantity) > 0 ? "secondary" : "destructive"} className="font-mono text-xs">
+                      {p.stockQuantity} {p.unit || 'قطعة'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-left px-5 py-3">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Link href={`/admin/products/barcode?productId=${p.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" title="طباعة ملصق باركود">
+                          <Barcode className="h-4 w-4 text-primary" />
+                        </Button>
+                      </Link>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" title="تعديل المادة" onClick={() => openEditDialog(p)}>
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive" title="حذف" onClick={() => handleDelete(p.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

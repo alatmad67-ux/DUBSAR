@@ -52,11 +52,171 @@ export default function InventoryPage() {
     finally { setSaving(false); }
   };
 
-  return <div className="space-y-6" dir="rtl">
-    <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-black">إدارة المخزون</h1><p className="text-sm font-bold text-muted-foreground">متابعة الكميات وحركات المستودعات والجرد</p></div><Button variant="outline" className="gap-2 font-black" onClick={load}><RefreshCw className="h-4 w-4" /> تحديث</Button></div>
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-3"><div className="rounded-xl border bg-white p-4"><p className="text-xs font-bold text-muted-foreground">الأصناف</p><p className="text-2xl font-black">{filtered.length}</p></div><div className="rounded-xl border bg-white p-4"><p className="text-xs font-bold text-muted-foreground">المخزون المنخفض</p><p className="text-2xl font-black text-orange-600">{filtered.filter((row) => row.quantity > 0 && row.quantity <= row.minStockLevel).length}</p></div><div className="rounded-xl border bg-white p-4"><p className="text-xs font-bold text-muted-foreground">النافد</p><p className="text-2xl font-black text-red-600">{filtered.filter((row) => row.quantity === 0).length}</p></div><div className="rounded-xl border bg-white p-4"><p className="text-xs font-bold text-muted-foreground">قيمة الشراء</p><p className="text-2xl font-black text-primary">{inventoryValue.toLocaleString()} د.ع</p></div></div>
-    <div className="flex flex-wrap gap-3"><div className="relative flex-1 min-w-[260px]"><Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4" /><Input className="h-11 pr-10" placeholder="بحث بالاسم أو الباركود أو الماركة" value={search} onChange={(event) => setSearch(event.target.value)} /></div><select className="h-11 rounded-lg border bg-white px-3 font-bold" value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)}>{warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}</select><select className="h-11 rounded-lg border bg-white px-3 font-bold" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">كل الحالات</option><option value="available">متوفر</option><option value="low">مخزون منخفض</option><option value="out">نافد</option></select></div>
-    <div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full text-sm"><thead className="bg-muted/40"><tr><th className="p-4 text-right">المادة</th><th className="p-4 text-right">الباركود</th><th className="p-4 text-right">الوحدة</th><th className="p-4 text-right">الكمية</th><th className="p-4 text-right">سعر الشراء</th><th className="p-4 text-right">القيمة</th><th className="p-4 text-right">الحالة</th><th /></tr></thead><tbody>{loading ? <tr><td colSpan={8} className="p-10 text-center"><Loader2 className="mx-auto animate-spin" /></td></tr> : filtered.map((row) => { const low = row.quantity > 0 && row.quantity <= row.minStockLevel; return <tr key={`${row.id}-${warehouseId}`} className="border-t hover:bg-muted/20"><td className="p-4 font-black">{row.name}<span className="block text-xs text-muted-foreground">{row.brand || 'بدون ماركة'}</span></td><td className="p-4 text-xs">{row.barcode || '-'}</td><td className="p-4">{row.unit || 'قطعة'}</td><td className="p-4 font-black">{row.quantity}</td><td className="p-4">{Number(row.purchasePrice || 0).toLocaleString()}</td><td className="p-4 font-bold">{(Number(row.purchasePrice || 0) * Number(row.quantity || 0)).toLocaleString()}</td><td className="p-4"><span className={`rounded-full px-3 py-1 text-xs font-black ${row.quantity === 0 ? 'bg-red-100 text-red-700' : low ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{row.quantity === 0 ? 'نافد' : low ? 'منخفض' : 'متوفر'}</span></td><td className="p-4"><Button size="sm" variant="outline" className="gap-2 font-bold" onClick={() => { setSelected(row); setActual(Number(row.quantity)); }}><ClipboardCheck className="h-4 w-4" />جرد</Button></td></tr>; })}</tbody></table></div>
-    {selected && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-5"><div className="flex items-center gap-3"><Warehouse className="text-primary" /><div><h2 className="text-xl font-black">جرد المادة</h2><p className="text-sm font-bold text-muted-foreground">{selected.name}</p></div></div><div className="grid grid-cols-2 gap-3 text-sm font-bold"><div className="rounded-lg bg-muted/30 p-3">النظام: {selected.quantity}</div><div className="rounded-lg bg-muted/30 p-3">الفرق: {actual - selected.quantity}</div></div><div><Label className="font-black">الكمية الفعلية</Label><Input type="number" min="0" value={actual} onChange={(event) => setActual(Number(event.target.value))} className="mt-2 h-12" /></div><div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setSelected(null)}>إلغاء</Button><Button className="flex-1 gap-2 font-black" disabled={saving} onClick={approveCount}>{saving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4" />}اعتماد الجرد</Button></div></div></div>}
-  </div>;
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight">إدارة المخزون والجرد</h1>
+          <p className="text-sm font-bold text-muted-foreground">متابعة الكميات وحركات المستودعات والجرد الفعلي</p>
+        </div>
+        <Button variant="outline" className="gap-2 font-black rounded-xl h-10 px-4 bg-white dark:bg-slate-900 shadow-sm" onClick={load}>
+          <RefreshCw className="h-4 w-4" /> تحديث البيانات
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="rounded-2xl border bg-white dark:bg-slate-900 p-4 shadow-sm">
+          <p className="text-xs font-bold text-muted-foreground">إجمالي الأصناف</p>
+          <p className="text-2xl font-black mt-1 font-mono">{filtered.length}</p>
+        </div>
+        <div className="rounded-2xl border bg-white dark:bg-slate-900 p-4 shadow-sm">
+          <p className="text-xs font-bold text-muted-foreground">المخزون المنخفض</p>
+          <p className="text-2xl font-black text-orange-600 mt-1 font-mono">
+            {filtered.filter((row) => row.quantity > 0 && row.quantity <= row.minStockLevel).length}
+          </p>
+        </div>
+        <div className="rounded-2xl border bg-white dark:bg-slate-900 p-4 shadow-sm">
+          <p className="text-xs font-bold text-muted-foreground">الأصناف النافدة</p>
+          <p className="text-2xl font-black text-red-600 mt-1 font-mono">
+            {filtered.filter((row) => row.quantity === 0).length}
+          </p>
+        </div>
+        <div className="rounded-2xl border bg-white dark:bg-slate-900 p-4 shadow-sm">
+          <p className="text-xs font-bold text-muted-foreground">إجمالي قيمة الشراء</p>
+          <p className="text-2xl font-black text-primary mt-1 font-mono">{inventoryValue.toLocaleString()} د.ع</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border shadow-sm">
+        <div className="relative flex-1 min-w-[240px] max-w-xl">
+          <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="h-10 pr-10 rounded-xl font-bold text-xs"
+            placeholder="بحث بالاسم أو الباركود أو الماركة..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+        <select
+          className="h-10 min-w-[170px] rounded-xl border bg-white dark:bg-slate-800 px-3 text-xs font-bold"
+          value={warehouseId}
+          onChange={(event) => setWarehouseId(event.target.value)}
+        >
+          {warehouses.map((warehouse) => (
+            <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+          ))}
+        </select>
+        <select
+          className="h-10 min-w-[150px] rounded-xl border bg-white dark:bg-slate-800 px-3 text-xs font-bold"
+          value={status}
+          onChange={(event) => setStatus(event.target.value)}
+        >
+          <option value="all">كل الحالات</option>
+          <option value="available">متوفر</option>
+          <option value="low">مخزون منخفض</option>
+          <option value="out">نافد</option>
+        </select>
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl border bg-white dark:bg-slate-900 shadow-sm">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-100/80 dark:bg-slate-800/80 border-b text-xs font-black">
+            <tr>
+              <th className="p-3.5 text-right min-w-[220px]">المادة والماركة</th>
+              <th className="p-3.5 text-right w-40">الباركود</th>
+              <th className="p-3.5 text-center w-28">الوحدة</th>
+              <th className="p-3.5 text-center w-32">الكمية المتوفرة</th>
+              <th className="p-3.5 text-center w-36">سعر الشراء</th>
+              <th className="p-3.5 text-center w-40">القيمة الإجمالية</th>
+              <th className="p-3.5 text-center w-32">الحالة</th>
+              <th className="p-3.5 text-left w-28">إجراء</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {loading ? (
+              <tr>
+                <td colSpan={8} className="p-10 text-center">
+                  <Loader2 className="mx-auto animate-spin text-primary" />
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="p-10 text-center text-muted-foreground font-bold text-xs">
+                  لا توجد أصناف مطابقة للبحث
+                </td>
+              </tr>
+            ) : (
+              filtered.map((row) => {
+                const low = row.quantity > 0 && row.quantity <= row.minStockLevel;
+                return (
+                  <tr key={`${row.id}-${warehouseId}`} className="hover:bg-muted/20 transition-colors">
+                    <td className="p-3.5 font-black">
+                      <div>{row.name}</div>
+                      <span className="block text-[11px] text-muted-foreground font-bold">{row.brand || 'بدون ماركة'}</span>
+                    </td>
+                    <td className="p-3.5 text-xs font-mono text-muted-foreground">{row.barcode || '-'}</td>
+                    <td className="p-3.5 text-center text-xs font-bold">{row.unit || 'قطعة'}</td>
+                    <td className="p-3.5 text-center font-black font-mono text-base">{row.quantity}</td>
+                    <td className="p-3.5 text-center font-mono text-xs font-bold">{Number(row.purchasePrice || 0).toLocaleString()} د.ع</td>
+                    <td className="p-3.5 text-center font-mono font-black text-primary">
+                      {(Number(row.purchasePrice || 0) * Number(row.quantity || 0)).toLocaleString()} د.ع
+                    </td>
+                    <td className="p-3.5 text-center">
+                      <span className={`inline-block rounded-full px-3 py-1 text-xs font-black ${row.quantity === 0 ? 'bg-red-100 text-red-700' : low ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                        {row.quantity === 0 ? 'نافد' : low ? 'منخفض' : 'متوفر'}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-left">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 font-bold rounded-lg h-8 text-xs"
+                        onClick={() => { setSelected(row); setActual(Number(row.quantity)); }}
+                      >
+                        <ClipboardCheck className="h-3.5 w-3.5 text-primary" />جرد
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-5 border">
+            <div className="flex items-center gap-3">
+              <Warehouse className="text-primary h-6 w-6" />
+              <div>
+                <h2 className="text-xl font-black">جرد المادة</h2>
+                <p className="text-sm font-bold text-muted-foreground">{selected.name}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm font-bold">
+              <div className="rounded-xl bg-muted/30 p-3 border">النظام: <span className="font-mono font-black">{selected.quantity}</span></div>
+              <div className="rounded-xl bg-muted/30 p-3 border">الفرق: <span className="font-mono font-black">{actual - selected.quantity}</span></div>
+            </div>
+            <div>
+              <Label className="font-black">الكمية الفعلية</Label>
+              <Input
+                type="number"
+                min="0"
+                value={actual}
+                onChange={(event) => setActual(Number(event.target.value))}
+                className="mt-2 h-11 rounded-xl font-mono font-black"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 rounded-xl font-bold" onClick={() => setSelected(null)}>إلغاء</Button>
+              <Button className="flex-1 gap-2 font-black rounded-xl" disabled={saving} onClick={approveCount}>
+                {saving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}اعتماد الجرد
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
