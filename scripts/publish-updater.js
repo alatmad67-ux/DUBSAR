@@ -71,7 +71,7 @@ const remoteExeName = `DUBSAR.2.0_${version}_x64-setup.exe`;
 
 const latestJsonContent = {
   version: version,
-  notes: `DUBSAR ${version} - التحديث الرسمي الشامل: ترقية نظام التراخيص الدائم Lifetime للتوافق التام مع الحروف العربية والـ Unicode، إضافة قوالب طباعة الفواتير A4 المرنة مع إمكانية إخفاء وإظهار الأعمدة والهيدر المخصص، والتحديثات الأمنية.`,
+  notes: `DUBSAR ${version} - التحديث الرسمي الشامل: إضافة ميزة استيراد المنتجات من ملفات Excel وCSV مع مطابقة الأعمدة وفحص البيانات والكميات، وتحسينات تنظيم جداول الفواتير والتذييل والترقيم المتسلسل.`,
   pub_date: new Date().toISOString(),
   platforms: {
     'windows-x86_64': {
@@ -236,19 +236,44 @@ async function runPublish() {
     const uploadUrl = release.upload_url;
     console.log('\n📦 جاري رفع ملفات التثبيت والتحديث الموقعة...');
 
-    // Upload Files
-    await uploadAsset(uploadUrl, distExePath, remoteExeName, 'application/vnd.microsoft.portable-executable');
-    await uploadAsset(uploadUrl, distSigPath, `${remoteExeName}.sig`, 'text/plain');
-    await uploadAsset(uploadUrl, distLatestJsonPath, 'latest.json', 'application/json');
-
-    if (hasMsi) {
-      await uploadAsset(uploadUrl, distMsiPath, `DUBSAR.2.0_${version}_x64_en-US.msi`, 'application/x-msi');
+    // Function to safely upload or overwrite existing asset
+    async function safeUploadAsset(filePath, fileName, contentType) {
+      if (release.assets && Array.isArray(release.assets)) {
+        const existing = release.assets.find(a => a.name === fileName);
+        if (existing) {
+          console.log(`  🔄 جاري حذف النسخة السابقة من: ${fileName}...`);
+          try {
+            await githubApi(`/repos/${REPO_OWNER}/${REPO_NAME}/releases/assets/${existing.id}`, 'DELETE');
+          } catch (delErr) {
+            console.warn(`  ⚠️ تعذر حذف ${fileName}:`, delErr.message);
+          }
+        }
+      }
+      await uploadAsset(uploadUrl, filePath, fileName, contentType);
     }
+
+    // 1. Primary Setup Exe & Signature
+    await safeUploadAsset(distExePath, remoteExeName, 'application/vnd.microsoft.portable-executable');
+    await safeUploadAsset(distSigPath, `${remoteExeName}.sig`, 'text/plain');
+    await safeUploadAsset(distLatestJsonPath, 'latest.json', 'application/json');
+
+    // 2. MSI Package if available
+    if (hasMsi) {
+      await safeUploadAsset(distMsiPath, `DUBSAR.2.0_${version}_x64_en-US.msi`, 'application/x-msi');
+    }
+
+    // 3. Compatibility asset names so old/cached links NEVER 404
+    console.log('\n🛡️ جاري رفع أسماء التوافق لروابط التحميل القديمة والدائمة لمنع 404...');
+    await safeUploadAsset(distExePath, `DUBSAR 2.0_${version}_x64-setup.exe`, 'application/vnd.microsoft.portable-executable');
+    await safeUploadAsset(distExePath, 'DUBSAR.2.0_2.0.5_x64-setup.exe', 'application/vnd.microsoft.portable-executable');
+    await safeUploadAsset(distExePath, 'DUBSAR.2.0_2.0.6_x64-setup.exe', 'application/vnd.microsoft.portable-executable');
+    await safeUploadAsset(distExePath, 'DUBSAR-Setup.exe', 'application/vnd.microsoft.portable-executable');
 
     console.log(`\n======================================================`);
     console.log(` 🎉 تم نشر تحديث DUBSAR v${version} بنجاح على GitHub!`);
     console.log(` رابط التحديث: https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/tag/${tagName}`);
     console.log(` رابط فحص التحديثات: https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest/download/latest.json`);
+    console.log(` رابط التحميل المباشر: https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest/download/${remoteExeName}`);
     console.log(`======================================================\n`);
   } catch (err) {
     console.error('❌ خطأ أثناء الرفع إلى GitHub:', err.message);

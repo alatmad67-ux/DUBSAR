@@ -61,8 +61,8 @@ export default function DubsarLandingPage() {
     );
   }
 
-  const downloadExeUrl = "https://github.com/alatmad67-ux/DUBSAR/releases/latest/download/DUBSAR.2.0_2.0.5_x64-setup.exe";
-  const downloadMsiUrl = "https://github.com/alatmad67-ux/DUBSAR/releases/latest/download/DUBSAR.2.0_2.0.5_x64_en-US.msi";
+  const downloadExeUrl = "https://github.com/alatmad67-ux/DUBSAR/releases/latest/download/DUBSAR.2.0_2.0.7_x64-setup.exe";
+  const downloadMsiUrl = "https://github.com/alatmad67-ux/DUBSAR/releases/latest/download/DUBSAR.2.0_2.0.7_x64_en-US.msi";
   const developerWhatsApp = "https://wa.me/9647858833838";
 
   const banknotes = [
@@ -602,7 +602,7 @@ export default function DubsarLandingPage() {
             >
               <div className="space-y-0.5">
                 <p className="text-xs font-semibold text-white group-hover:text-amber-400 transition-colors">مثبت الإعداد التنفيذي (.exe)</p>
-                <p className="text-[11px] font-mono text-zinc-500">DUBSAR.2.0_2.0.5_x64-setup.exe • 9 MB</p>
+                <p className="text-[11px] font-mono text-zinc-500">DUBSAR.2.0_2.0.7_x64-setup.exe • 10 MB</p>
               </div>
               <Download className="h-4 w-4 text-zinc-400 group-hover:text-white transition-colors" strokeWidth={1.5} />
             </a>
@@ -613,7 +613,7 @@ export default function DubsarLandingPage() {
             >
               <div className="space-y-0.5">
                 <p className="text-xs font-semibold text-white group-hover:text-amber-400 transition-colors">حزمة النشر المؤسسية (.msi)</p>
-                <p className="text-[11px] font-mono text-zinc-500">DUBSAR.2.0_2.0.5_x64_en-US.msi • 10 MB</p>
+                <p className="text-[11px] font-mono text-zinc-500">DUBSAR.2.0_2.0.7_x64_en-US.msi • 10 MB</p>
               </div>
               <Package className="h-4 w-4 text-zinc-400 group-hover:text-white transition-colors" strokeWidth={1.5} />
             </a>
