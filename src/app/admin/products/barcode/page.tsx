@@ -47,8 +47,10 @@ export default function BarcodeStudioPage() {
   const [customHeight, setCustomHeight] = useState(25);
   const [showStoreName, setShowStoreName] = useState(true);
   const [showProductName, setShowProductName] = useState(true);
-  const [showPrice, setShowPrice] = useState(true);
+  const [showBarcode, setShowBarcode] = useState(true);
   const [showBarcodeNumber, setShowBarcodeNumber] = useState(true);
+  const [showPrice, setShowPrice] = useState(true);
+  const [showCurrency, setShowCurrency] = useState(true);
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [priceType, setPriceType] = useState<'retail' | 'wholesale'>('retail');
   const [isPrinting, setIsPrinting] = useState(false);
@@ -163,7 +165,9 @@ export default function BarcodeStudioPage() {
         showStoreName,
         showProductName,
         showPrice,
+        showBarcode,
         showBarcodeNumber,
+        showCurrency,
         fontSize
       };
 
@@ -362,9 +366,9 @@ export default function BarcodeStudioPage() {
             </CardHeader>
             <CardContent className="p-4 space-y-4">
               {/* Size Preset */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label className="text-xs font-bold">قياس ورق الملصقات</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   <Button
                     type="button"
                     variant={labelSize === '38x25' ? 'default' : 'outline'}
@@ -372,7 +376,7 @@ export default function BarcodeStudioPage() {
                     className="text-xs font-bold h-9"
                     onClick={() => setLabelSize('38x25')}
                   >
-                    38×25 مم (شائع)
+                    38×25 مم
                   </Button>
                   <Button
                     type="button"
@@ -392,7 +396,43 @@ export default function BarcodeStudioPage() {
                   >
                     40×20 مم
                   </Button>
+                  <Button
+                    type="button"
+                    variant={labelSize === 'custom' ? 'default' : 'outline'}
+                    size="sm"
+                    className="text-xs font-bold h-9"
+                    onClick={() => setLabelSize('custom')}
+                  >
+                    مخصص
+                  </Button>
                 </div>
+
+                {labelSize === 'custom' && (
+                  <div className="grid grid-cols-2 gap-3 pt-2 bg-muted/40 p-2.5 rounded-xl border">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-bold text-muted-foreground">العرض (مم)</Label>
+                      <Input
+                        type="number"
+                        min={15}
+                        max={100}
+                        value={customWidth}
+                        onChange={(e) => setCustomWidth(Math.max(10, Number(e.target.value) || 38))}
+                        className="h-8 text-xs font-mono font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-bold text-muted-foreground">الارتفاع (مم)</Label>
+                      <Input
+                        type="number"
+                        min={10}
+                        max={100}
+                        value={customHeight}
+                        onChange={(e) => setCustomHeight(Math.max(10, Number(e.target.value) || 25))}
+                        className="h-8 text-xs font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Price Type */}
@@ -420,12 +460,20 @@ export default function BarcodeStudioPage() {
                   <Switch checked={showProductName} onCheckedChange={setShowProductName} />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>إظهار السعر</span>
-                  <Switch checked={showPrice} onCheckedChange={setShowPrice} />
+                  <span>إظهار رمز الباركود الرسومي</span>
+                  <Switch checked={showBarcode} onCheckedChange={setShowBarcode} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span>إظهار رقم الباركود كنص</span>
                   <Switch checked={showBarcodeNumber} onCheckedChange={setShowBarcodeNumber} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>إظهار السعر</span>
+                  <Switch checked={showPrice} onCheckedChange={setShowPrice} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>إظهار العملة (د.ع)</span>
+                  <Switch checked={showCurrency} onCheckedChange={setShowCurrency} />
                 </div>
               </div>
 
@@ -493,7 +541,9 @@ export default function BarcodeStudioPage() {
                     {previewItem.productName}
                   </div>
                 )}
-                <div className="w-[90%] my-0.5" dangerouslySetInnerHTML={{ __html: previewSvg }} />
+                {showBarcode && (
+                  <div className="w-[90%] my-0.5" dangerouslySetInnerHTML={{ __html: previewSvg }} />
+                )}
                 {showBarcodeNumber && (
                   <div className="text-[9px] font-mono tracking-wider font-bold text-slate-800">
                     {previewItem.barcode}
@@ -501,7 +551,7 @@ export default function BarcodeStudioPage() {
                 )}
                 {showPrice && (
                   <div className="text-xs font-black font-mono border-t border-black w-[85%] pt-0.5 text-black">
-                    {Number(previewItem.price).toLocaleString()} د.ع
+                    {Number(previewItem.price).toLocaleString()} {showCurrency ? 'د.ع' : ''}
                   </div>
                 )}
               </div>

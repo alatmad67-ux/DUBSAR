@@ -795,6 +795,32 @@ export default function ComprehensiveSettingsPage() {
                   </label>
                 </div>
               </div>
+
+              {/* Design Studio Link */}
+              <div className="border border-primary/20 rounded-2xl p-5 bg-gradient-to-r from-primary/5 via-primary/10 to-transparent flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm font-black text-primary">
+                    <Palette className="h-4 w-4" />
+                    <span>استوديو تصميم وهوية الفواتير وترويسة A4</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-bold">
+                    تحكم متقدم بأعمدة جدول المواد، رفع صورة الترويسة العريضة للفاتورة A4، ألوان وهوية الفاتورة، وهوامش الورق.
+                  </p>
+                  {settings.invoiceHeaderImage && (
+                    <div className="text-[11px] font-bold text-emerald-600 flex items-center gap-1 mt-1">
+                      <Check className="h-3 w-3" />
+                      <span>تم تعيين صورة ترويسة مخصصة للفاتورة A4</span>
+                    </div>
+                  )}
+                </div>
+                <a
+                  href="/admin/settings/design"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-xs font-black rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20 whitespace-nowrap"
+                >
+                  <span>فتح استوديو التصميم</span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </div>
             </div>
           )}
 

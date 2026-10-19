@@ -71,7 +71,7 @@ const remoteExeName = `DUBSAR.2.0_${version}_x64-setup.exe`;
 
 const latestJsonContent = {
   version: version,
-  notes: `DUBSAR ${version} - التحديث الرسمي الشامل: إضافة ميزة استيراد المنتجات من ملفات Excel وCSV مع مطابقة الأعمدة وفحص البيانات والكميات، وتحسينات تنظيم جداول الفواتير والتذييل والترقيم المتسلسل.`,
+  notes: `DUBSAR ${version} - التحديث الرسمي: إعادة تصميم وهيكلة شريط معلومات الفاتورة وبيانات الزبون ونوع البيع والمستودع وفق التصميم المعتمد مع الشارة المركزية، وتحسينات طباعة وتصدير الفواتير.`,
   pub_date: new Date().toISOString(),
   platforms: {
     'windows-x86_64': {
@@ -264,10 +264,19 @@ async function runPublish() {
 
     // 3. Compatibility asset names so old/cached links NEVER 404
     console.log('\n🛡️ جاري رفع أسماء التوافق لروابط التحميل القديمة والدائمة لمنع 404...');
-    await safeUploadAsset(distExePath, `DUBSAR 2.0_${version}_x64-setup.exe`, 'application/vnd.microsoft.portable-executable');
-    await safeUploadAsset(distExePath, 'DUBSAR.2.0_2.0.5_x64-setup.exe', 'application/vnd.microsoft.portable-executable');
-    await safeUploadAsset(distExePath, 'DUBSAR.2.0_2.0.6_x64-setup.exe', 'application/vnd.microsoft.portable-executable');
-    await safeUploadAsset(distExePath, 'DUBSAR-Setup.exe', 'application/vnd.microsoft.portable-executable');
+    for (const compatName of [
+      `DUBSAR 2.0_${version}_x64-setup.exe`,
+      'DUBSAR.2.0_2.0.5_x64-setup.exe',
+      'DUBSAR.2.0_2.0.6_x64-setup.exe',
+      'DUBSAR.2.0_2.0.7_x64-setup.exe',
+      'DUBSAR-Setup.exe'
+    ]) {
+      try {
+        await safeUploadAsset(distExePath, compatName, 'application/vnd.microsoft.portable-executable');
+      } catch (err) {
+        console.log(`  ℹ️ اسم التوافق (${compatName}): ${err.message || 'موجود مسبقاً'}`);
+      }
+    }
 
     console.log(`\n======================================================`);
     console.log(` 🎉 تم نشر تحديث DUBSAR v${version} بنجاح على GitHub!`);

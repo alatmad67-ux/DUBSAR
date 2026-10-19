@@ -282,46 +282,55 @@ export function PrintableInvoice({
           )}
         </div>
 
-        <div className="text-left space-y-1 min-w-[220px]">
-          <div className="inline-block px-4 py-1 bg-primary text-white text-sm font-black rounded-lg text-center mb-1 w-full">
-            فاتورة مبيعات
-          </div>
-          <div className="flex justify-between text-xs border-b border-slate-200 py-0.5">
-            <span className="font-bold text-slate-500">رقم الفاتورة:</span>
-            <span className="font-mono font-black text-sm text-primary">{invoiceNo}</span>
-          </div>
-          <div className="flex justify-between text-xs border-b border-slate-200 py-0.5">
-            <span className="font-bold text-slate-500">التاريخ:</span>
-            <span className="font-bold">{date}</span>
-          </div>
-          <div className="flex justify-between text-xs border-b border-slate-200 py-0.5">
-            <span className="font-bold text-slate-500">الوقت:</span>
-            <span>{formattedTime}</span>
-          </div>
-          <div className="flex justify-between text-xs py-0.5">
-            <span className="font-bold text-slate-500">منظم الفاتورة:</span>
-            <span className="font-bold">{cashierName}</span>
-          </div>
+        <div className="text-left font-mono text-xs text-slate-400">
+          <div className="font-black text-slate-600">DUBSAR 2.0</div>
+          <div className="text-[10px]">نظام إدارة المبيعات والمخزون</div>
         </div>
       </div>
 
-      {/* Customer Info Card */}
-      <div className="my-5 p-4 rounded-xl border border-slate-200 bg-slate-50/60 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <span className="block text-[10px] font-bold text-slate-500">اسم العميل:</span>
-          <span className="text-sm font-black text-slate-900">{customer?.name || 'زبون نقدي'}</span>
+      {/* Reference Invoice Information Bar */}
+      <div className="relative my-4 border border-slate-300 rounded-xl bg-white p-3 pt-3.5">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+          <span className="bg-[#0b1329] text-white text-[11px] font-black px-6 py-0.5 rounded-full shadow-sm">
+            فاتورة مبيعات
+          </span>
         </div>
-        <div>
-          <span className="block text-[10px] font-bold text-slate-500">رقم الهاتف:</span>
-          <span className="text-xs font-mono font-bold text-slate-800">{customer?.phone || '-'}</span>
-        </div>
-        <div>
-          <span className="block text-[10px] font-bold text-slate-500">العنوان:</span>
-          <span className="text-xs font-bold text-slate-800">{customer?.address || '-'}</span>
-        </div>
-        <div>
-          <span className="block text-[10px] font-bold text-slate-500">نوع السعر والعملة:</span>
-          <span className="text-xs font-bold text-primary">{priceTypeArabic} • {currency === 'USD' ? 'دولار ($)' : 'دينار (د.ع)'}</span>
+        <div className="grid grid-cols-4 gap-2 text-[11px] pt-1">
+          {/* Row 1 */}
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <span className="text-slate-500 font-bold shrink-0">رقم الفاتورة:</span>
+            <span className="font-mono font-black text-slate-900">{invoiceNo}</span>
+          </div>
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <span className="text-slate-500 font-bold shrink-0">التاريخ:</span>
+            <span className="font-mono font-bold text-slate-800">{date}</span>
+          </div>
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <span className="text-slate-500 font-bold shrink-0">الوقت:</span>
+            <span className="font-mono font-bold text-slate-800">{formattedTime}</span>
+          </div>
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <span className="text-slate-500 font-bold shrink-0">نوع البيع:</span>
+            <span className="font-bold text-slate-900">{remaining > 0 ? (paidAmount > 0 ? 'نقدي + آجل' : 'آجل') : 'نقدي'}</span>
+          </div>
+
+          {/* Row 2 */}
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <span className="text-slate-500 font-bold shrink-0">اسم الزبون:</span>
+            <span className="font-black text-slate-900 truncate">{customer?.name || 'زبون نقدي'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <span className="text-slate-500 font-bold shrink-0">هاتف الزبون:</span>
+            <span className="font-mono text-slate-800">{customer?.phone || '---'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <span className="text-slate-500 font-bold shrink-0">العنوان:</span>
+            <span className="text-slate-800 truncate">{customer?.address || '---'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <span className="text-slate-500 font-bold shrink-0">المستودع:</span>
+            <span className="text-slate-800 font-bold truncate">المستودع الرئيسي</span>
+          </div>
         </div>
       </div>
 

@@ -57,9 +57,13 @@ export default function InvoiceDesignPage() {
     defaultPrintFormat: '80mm' as '80mm' | 'A4',
     showLogo: true,
     showItemIndex: true,
+    showItemName: true,
     showBarcode: true,
     showUnit: true,
+    showQuantity: true,
+    showPrice: true,
     showDiscount: true,
+    showTotal: true,
     showQrCode: true,
     showCashierName: true,
     showCustomerBalance: true,
@@ -469,13 +473,21 @@ export default function InvoiceDesignPage() {
                 </div>
               </div>
 
-              <div className="text-xs font-black text-slate-700 dark:text-slate-300 pt-2">أعمدة جدول المواد (A4):</div>
+              <div className="text-xs font-black text-slate-700 dark:text-slate-300 pt-2">أعمدة جدول المواد (الفواتير A4 و 80mm):</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
                   <span className="font-bold text-xs text-slate-700 dark:text-slate-300">عمود التسلسل (#)</span>
                   <Switch 
                     checked={settings.showItemIndex} 
                     onCheckedChange={(val) => setSettings({ ...settings, showItemIndex: val })} 
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">عمود المادة (اسم المنتج)</span>
+                  <Switch 
+                    checked={settings.showItemName} 
+                    onCheckedChange={(val) => setSettings({ ...settings, showItemName: val })} 
                   />
                 </div>
 
@@ -496,10 +508,34 @@ export default function InvoiceDesignPage() {
                 </div>
 
                 <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">عمود العدد (الكمية)</span>
+                  <Switch 
+                    checked={settings.showQuantity} 
+                    onCheckedChange={(val) => setSettings({ ...settings, showQuantity: val })} 
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">عمود سعر الوحدة</span>
+                  <Switch 
+                    checked={settings.showPrice} 
+                    onCheckedChange={(val) => setSettings({ ...settings, showPrice: val })} 
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
                   <span className="font-bold text-xs text-slate-700 dark:text-slate-300">عمود الخصم (Discount)</span>
                   <Switch 
                     checked={settings.showDiscount} 
                     onCheckedChange={(val) => setSettings({ ...settings, showDiscount: val })} 
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border bg-slate-50/60 dark:bg-slate-800/40">
+                  <span className="font-bold text-xs text-slate-700 dark:text-slate-300">عمود الإجمالي (Total)</span>
+                  <Switch 
+                    checked={settings.showTotal} 
+                    onCheckedChange={(val) => setSettings({ ...settings, showTotal: val })} 
                   />
                 </div>
               </div>

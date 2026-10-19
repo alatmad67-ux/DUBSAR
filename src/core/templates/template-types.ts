@@ -16,7 +16,15 @@ export type DocumentType =
   | 'purchase_list' 
   | 'customer_statement' 
   | 'supplier_statement' 
-  | 'profit_report';
+  | 'profit_report'
+  | 'sales_report'
+  | 'purchases_report'
+  | 'inventory_report'
+  | 'debts_report'
+  | 'expenses_report'
+  | 'cash_report'
+  | 'financial_report'
+  | 'product_movement_report';
 
 export type TemplateFormat = '80mm' | 'A4';
 export type AlignmentType = 'right' | 'center' | 'left';
@@ -130,9 +138,13 @@ export interface DocumentRenderData {
     fontScale?: 'small' | 'medium' | 'large';
     showLogo?: boolean;
     showItemIndex?: boolean;
+    showItemName?: boolean;
     showBarcode?: boolean;
     showUnit?: boolean;
+    showQuantity?: boolean;
+    showPrice?: boolean;
     showDiscount?: boolean;
+    showTotal?: boolean;
     showQrCode?: boolean;
     showCashierName?: boolean;
     showCustomerBalance?: boolean;

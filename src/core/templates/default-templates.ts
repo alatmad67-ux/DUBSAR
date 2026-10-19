@@ -13,7 +13,15 @@ export const DOCUMENT_TITLES: Record<DocumentType, string> = {
   purchase_list: 'قائمة مشتريات',
   customer_statement: 'كشف حساب عميل',
   supplier_statement: 'كشف حساب مورد',
-  profit_report: 'تقرير الأرباح والمالية'
+  profit_report: 'تقرير الأرباح والمالية',
+  sales_report: 'تقرير المبيعات التفصيلي',
+  purchases_report: 'تقرير المشتريات والموردين',
+  inventory_report: 'تقرير جرد وتقييم المخزون',
+  debts_report: 'تقرير كشف الديون والذمم',
+  expenses_report: 'تقرير المصروفات التشغيلية',
+  cash_report: 'تقرير حركة الصندوق والنقدية',
+  financial_report: 'التقرير المالي والأرباح والخسائر',
+  product_movement_report: 'كشف حركة مادة تفصيلي',
 };
 
 export function createDefaultTemplate(documentType: DocumentType, format: TemplateFormat = '80mm'): DocumentTemplate {
@@ -161,7 +169,15 @@ export function getAllDefaultTemplates(): DocumentTemplate[] {
     'purchase_list',
     'customer_statement',
     'supplier_statement',
-    'profit_report'
+    'profit_report',
+    'sales_report',
+    'purchases_report',
+    'inventory_report',
+    'debts_report',
+    'expenses_report',
+    'cash_report',
+    'financial_report',
+    'product_movement_report'
   ];
 
   const templates: DocumentTemplate[] = [];

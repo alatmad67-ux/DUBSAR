@@ -38,10 +38,14 @@ export interface UnifiedAppSettings {
 
   // Dynamic A4 / 80mm Table Columns & Elements
   showItemIndex: boolean;
+  showItemName: boolean;
   showBarcode: boolean;
   showBarcodeOnInvoice: boolean;
   showUnit: boolean;
+  showQuantity: boolean;
+  showPrice: boolean;
   showDiscount: boolean;
+  showTotal: boolean;
   showQrCode: boolean;
 
   // Party & Cashier Visibility
@@ -87,10 +91,14 @@ const DEFAULT_UNIFIED_SETTINGS: UnifiedAppSettings = {
   showCompanyLogo: true,
 
   showItemIndex: true,
+  showItemName: true,
   showBarcode: true,
   showBarcodeOnInvoice: true,
   showUnit: true,
+  showQuantity: true,
+  showPrice: true,
   showDiscount: true,
+  showTotal: true,
   showQrCode: true,
 
   showCashierName: true,
@@ -142,8 +150,12 @@ export class LocalAuthService {
     merged.showBarcodeOnInvoice = showBarcode;
 
     merged.showItemIndex = raw.showItemIndex !== undefined ? Boolean(raw.showItemIndex) : true;
+    merged.showItemName = raw.showItemName !== undefined ? Boolean(raw.showItemName) : true;
     merged.showUnit = raw.showUnit !== undefined ? Boolean(raw.showUnit) : true;
+    merged.showQuantity = raw.showQuantity !== undefined ? Boolean(raw.showQuantity) : true;
+    merged.showPrice = raw.showPrice !== undefined ? Boolean(raw.showPrice) : true;
     merged.showDiscount = raw.showDiscount !== undefined ? Boolean(raw.showDiscount) : true;
+    merged.showTotal = raw.showTotal !== undefined ? Boolean(raw.showTotal) : true;
     merged.showOrganizerName = raw.showOrganizerName !== undefined ? Boolean(raw.showOrganizerName) : true;
     merged.showSupplierName = raw.showSupplierName !== undefined ? Boolean(raw.showSupplierName) : true;
     merged.showSignatures = raw.showSignatures !== undefined ? Boolean(raw.showSignatures) : true;

@@ -5,11 +5,12 @@
  * Eliminates screen clipping and viewport screenshot issues by rendering into an isolated print frame.
  */
 
-import { DocumentType } from '@/core/templates/template-types';
+import { DocumentType, DocumentTemplate, DocumentRenderData } from '@/core/templates/template-types';
 import { DocumentRenderer } from '@/core/templates/document-renderer';
 import { TemplateService } from '@/core/templates/template-service';
 import { AdapterFactory } from '@/infra/database/adapter-factory';
 import { DB_COMMANDS } from '@/infra/database/adapter';
+import { toAsciiDigits } from '@/core/print-templates/common/number-formatter';
 
 export interface InvoicePrintItem {
   name: string;
@@ -72,8 +73,11 @@ export interface BarcodeLabelConfig {
   heightMm: number;
   showStoreName: boolean;
   showPrice: boolean;
+  showBarcode?: boolean;
   showBarcodeNumber: boolean;
   showProductName: boolean;
+  showCurrency?: boolean;
+  currencyText?: string;
   fontSize: 'small' | 'medium' | 'large';
 }
 
@@ -844,16 +848,21 @@ export class PrintEngine {
     config: BarcodeLabelConfig
   ): Promise<void> {
     const labelsHtml: string[] = [];
+    const showBarcodeGraphic = config.showBarcode !== false;
+    const showCurrencyText = config.showCurrency !== false;
+    const currency = config.currencyText || 'د.ع';
 
     for (const item of items) {
-      const barcodeSvg = generateCode128Svg(item.barcode, 32);
+      const barcodeSvg = showBarcodeGraphic ? generateCode128Svg(item.barcode, 32) : '';
+      const formattedPrice = toAsciiDigits(Number(item.price).toLocaleString('en-US'));
+      const barcodeText = toAsciiDigits(item.barcode);
       const singleLabel = `
         <div class="label-card">
           ${config.showStoreName && item.businessName ? `<div class="store-name">${item.businessName}</div>` : ''}
           ${config.showProductName ? `<div class="product-name">${item.productName}</div>` : ''}
-          <div class="barcode-svg">${barcodeSvg}</div>
-          ${config.showBarcodeNumber ? `<div class="barcode-text font-mono">${item.barcode}</div>` : ''}
-          ${config.showPrice ? `<div class="price-tag font-mono">${Number(item.price).toLocaleString()} د.ع</div>` : ''}
+          ${showBarcodeGraphic ? `<div class="barcode-svg">${barcodeSvg}</div>` : ''}
+          ${config.showBarcodeNumber ? `<div class="barcode-text font-mono">${barcodeText}</div>` : ''}
+          ${config.showPrice ? `<div class="price-tag font-mono">${formattedPrice} ${showCurrencyText ? currency : ''}</div>` : ''}
         </div>
       `;
 
@@ -867,11 +876,11 @@ export class PrintEngine {
       <html dir="rtl" lang="ar">
       <head>
         <meta charset="utf-8">
-        <title>طباعة ملصقات الباركود</title>
+        <title>&#8203;</title>
         <style>
           @page {
             size: ${config.widthMm}mm ${config.heightMm}mm;
-            margin: 0;
+            margin: 0 !important;
           }
           * {
             box-sizing: border-box;
@@ -1549,336 +1558,34 @@ export class PrintEngine {
    * Generates and prints crystal-clear official Receipt / Payment Vouchers (80mm & A4).
    */
   static async printVoucher(data: VoucherPrintData, format: '80mm' | 'A4' = '80mm'): Promise<void> {
-    const settings = data.businessSettings || {};
-    const businessName = settings.businessName || 'مؤسسة دوبسار التجارية';
-    const isReceipt = data.type === 'receipt';
-    const voucherTitle = isReceipt ? 'سند قبض مالي' : 'سند صرف مالي';
-    const partyLabel = isReceipt ? 'استلمنا من السيد / السيدة:' : 'صرفنا إلى السيد / السيدة:';
-    const paymentMethodLabel = data.paymentMethod === 'cash' ? 'نقداً' : data.paymentMethod === 'transfer' ? 'تحويل بنكي / إلكتروني' : data.paymentMethod === 'check' ? 'صك مصرفي' : data.paymentMethod;
-
-    if (format === '80mm') {
-      const html = `
-        <!DOCTYPE html>
-        <html dir="rtl" lang="ar">
-        <head>
-          <meta charset="utf-8">
-          <title>${voucherTitle} - ${data.voucherNo}</title>
-          <style>
-            @page {
-              size: 80mm auto;
-              margin: 3mm;
-            }
-            * {
-              box-sizing: border-box;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, Tahoma, sans-serif;
-              margin: 0;
-              padding: 4px;
-              width: 74mm;
-              background: #fff;
-              color: #000;
-              font-size: 11px;
-              line-height: 1.35;
-            }
-            .center { text-align: center; }
-            .header {
-              border-bottom: 2px dashed #000;
-              padding-bottom: 6px;
-              margin-bottom: 8px;
-            }
-            .title {
-              font-size: 16px;
-              font-weight: 900;
-              margin-bottom: 3px;
-            }
-            .subtitle {
-              font-size: 13px;
-              font-weight: bold;
-              border: 1px solid #000;
-              padding: 2px 6px;
-              display: inline-block;
-              border-radius: 4px;
-              margin-top: 2px;
-            }
-            .info-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 4px;
-              font-size: 11px;
-            }
-            .amount-box {
-              border: 2px solid #000;
-              padding: 8px;
-              text-align: center;
-              margin: 8px 0;
-              border-radius: 6px;
-              background: #f8fafc;
-            }
-            .amount-val {
-              font-size: 18px;
-              font-weight: 900;
-              font-family: monospace;
-            }
-            .divider {
-              border-top: 1px dashed #000;
-              margin: 6px 0;
-            }
-            .sig-area {
-              margin-top: 16px;
-              display: flex;
-              justify-content: space-between;
-              font-size: 10px;
-              font-weight: bold;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="center header">
-            <div class="title">${businessName}</div>
-            <div class="subtitle">${voucherTitle}</div>
-            ${settings.phone1 ? `<div style="font-family: monospace; font-size: 10px; margin-top: 3px;">هاتف: ${settings.phone1}</div>` : ''}
-          </div>
-
-          <div class="info-row">
-            <span>رقم السند:</span>
-            <span style="font-weight: 900; font-family: monospace;">${data.voucherNo}</span>
-          </div>
-          <div class="info-row">
-            <span>التاريخ:</span>
-            <span style="font-family: monospace;">${data.date} ${data.time || ''}</span>
-          </div>
-
-          <div class="divider"></div>
-
-          <div style="margin-bottom: 4px; font-weight: bold;">${partyLabel}</div>
-          <div style="font-size: 13px; font-weight: 900; padding: 2px 0;">${data.partyName}</div>
-          ${data.partyPhone ? `<div style="font-size: 10px; font-family: monospace; color: #444;">هاتف: ${data.partyPhone}</div>` : ''}
-
-          <div class="amount-box">
-            <div style="font-size: 10px; font-weight: bold;">المبلغ المستلم / المدفوع:</div>
-            <div class="amount-val">${Number(data.amount || 0).toLocaleString()} د.ع</div>
-          </div>
-
-          <div class="info-row">
-            <span>طريقة الدفع:</span>
-            <span style="font-weight: bold;">${paymentMethodLabel}</span>
-          </div>
-
-          ${data.notes ? `
-          <div class="divider"></div>
-          <div style="font-size: 10px; margin-top: 4px;">
-            <span style="font-weight: bold;">البيان / ملاحظات:</span>
-            <div>${data.notes}</div>
-          </div>` : ''}
-
-          ${data.currentBalance !== undefined ? `
-          <div class="divider"></div>
-          <div class="info-row">
-            <span>الرصيد المتبقي:</span>
-            <span style="font-weight: 900; font-family: monospace;">${Number(data.currentBalance || 0).toLocaleString()} د.ع</span>
-          </div>` : ''}
-
-          <div class="sig-area">
-            <div>المحاسب: ${data.employeeName || 'الكاشير'}</div>
-            <div>توقيع المستلم: ...........</div>
-          </div>
-
-          <div class="center" style="margin-top: 14px; font-size: 9px; color: #666; border-top: 1px dotted #888; padding-top: 4px;">
-            نظام DUBSAR 2.0 • سند رسمي
-          </div>
-        </body>
-        </html>
-      `;
-      await this.printIsolatedHtml(html);
-    } else {
-      // A4 format
-      const html = `
-        <!DOCTYPE html>
-        <html dir="rtl" lang="ar">
-        <head>
-          <meta charset="utf-8">
-          <title>${voucherTitle} - ${data.voucherNo}</title>
-          <style>
-            @page {
-              size: A4 portrait;
-              margin: 12mm;
-            }
-            * {
-              box-sizing: border-box;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, Tahoma, sans-serif;
-              margin: 0;
-              padding: 12px;
-              background: #fff;
-              color: #0f172a;
-              font-size: 12px;
-            }
-            .header {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              border-bottom: 2px solid #0284c7;
-              padding-bottom: 12px;
-              margin-bottom: 20px;
-            }
-            .title {
-              font-size: 22px;
-              font-weight: 900;
-              color: #0284c7;
-            }
-            .badge {
-              font-size: 14px;
-              font-weight: 900;
-              background: #f0f9ff;
-              border: 1px solid #0284c7;
-              color: #0369a1;
-              padding: 4px 14px;
-              border-radius: 8px;
-              display: inline-block;
-              margin-top: 4px;
-            }
-            .meta-box {
-              background: #f8fafc;
-              border: 1px solid #e2e8f0;
-              border-radius: 12px;
-              padding: 16px;
-              margin-bottom: 20px;
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 12px;
-            }
-            .meta-row {
-              display: flex;
-              justify-content: space-between;
-              padding: 4px 0;
-            }
-            .amount-card {
-              border: 2px solid ${isReceipt ? '#16a34a' : '#0284c7'};
-              background: ${isReceipt ? '#f0fdf4' : '#f0f9ff'};
-              border-radius: 12px;
-              padding: 16px;
-              text-align: center;
-              margin-bottom: 20px;
-            }
-            .amount-val {
-              font-size: 24px;
-              font-weight: 900;
-              font-family: monospace;
-              color: ${isReceipt ? '#15803d' : '#0369a1'};
-              margin-top: 4px;
-            }
-            .notes-box {
-              border: 1px solid #e2e8f0;
-              border-radius: 10px;
-              padding: 12px;
-              margin-bottom: 30px;
-              background: #fff;
-            }
-            .signatures {
-              display: flex;
-              justify-content: space-between;
-              margin-top: 40px;
-              padding: 0 40px;
-            }
-            .sig-box {
-              text-align: center;
-              width: 180px;
-              border-top: 1px dashed #94a3b8;
-              padding-top: 8px;
-              font-weight: bold;
-            }
-            .footer-note {
-              margin-top: 40px;
-              border-top: 1px solid #cbd5e1;
-              padding-top: 8px;
-              text-align: center;
-              font-size: 10px;
-              color: #64748b;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div>
-              <div class="title">${businessName}</div>
-              <div class="badge">${voucherTitle}</div>
-              ${settings.address ? `<div style="margin-top: 4px; color: #475569;">${settings.address}</div>` : ''}
-              ${settings.phone1 ? `<div style="font-family: monospace; color: #475569;">هاتف: ${settings.phone1}</div>` : ''}
-            </div>
-            <div style="text-align: left;">
-              ${settings.logo ? `<img src="${settings.logo}" style="max-height: 60px; max-width: 160px; object-contain: contain;" alt="logo" />` : ''}
-              <div style="font-family: monospace; font-size: 11px; margin-top: 6px;">
-                رقم السند: <strong>${data.voucherNo}</strong>
-              </div>
-              <div style="font-family: monospace; font-size: 11px; color: #64748b;">
-                التاريخ: ${data.date} ${data.time || ''}
-              </div>
-            </div>
-          </div>
-
-          <div class="meta-box">
-            <div>
-              <div class="meta-row">
-                <span style="color: #64748b;">${partyLabel}</span>
-                <span style="font-weight: 900; font-size: 14px;">${data.partyName}</span>
-              </div>
-              ${data.partyPhone ? `
-              <div class="meta-row">
-                <span style="color: #64748b;">رقم الهاتف:</span>
-                <span style="font-family: monospace; font-weight: bold;">${data.partyPhone}</span>
-              </div>` : ''}
-            </div>
-            <div style="border-right: 1px solid #e2e8f0; padding-right: 12px;">
-              <div class="meta-row">
-                <span style="color: #64748b;">طريقة الدفع:</span>
-                <span style="font-weight: bold;">${paymentMethodLabel}</span>
-              </div>
-              <div class="meta-row">
-                <span style="color: #64748b;">الموظف المسؤول:</span>
-                <span style="font-weight: bold;">${data.employeeName || 'المسؤول'}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="amount-card">
-            <div style="font-size: 13px; font-weight: bold; color: #475569;">المبلغ الإجمالي المستلم / المصروف</div>
-            <div class="amount-val">${Number(data.amount || 0).toLocaleString()} دينار عراقي</div>
-          </div>
-
-          ${data.notes ? `
-          <div class="notes-box">
-            <span style="font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">البيان والملاحظات:</span>
-            <div>${data.notes}</div>
-          </div>` : ''}
-
-          ${data.currentBalance !== undefined ? `
-          <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
-            <div style="background: #f1f5f9; padding: 10px 16px; border-radius: 8px; font-size: 13px;">
-              <span>الرصيد المتبقي بذمة الحساب: </span>
-              <strong style="font-family: monospace; font-size: 14px; color: #dc2626;">${Number(data.currentBalance || 0).toLocaleString()} د.ع</strong>
-            </div>
-          </div>` : ''}
-
-          <div class="signatures">
-            <div class="sig-box">توقيع وأمين الصندوق</div>
-            <div class="sig-box">توقيع المستلم / العميل</div>
-          </div>
-
-          <div class="footer-note">
-            <div>نظام DUBSAR 2.0 لإدارة الأعمال والمخازن • وثيقة مالية رسمية صادرة من النظام</div>
-          </div>
-        </body>
-        </html>
-      `;
-      await this.printIsolatedHtml(html);
-    }
+    const docType: DocumentType = data.type === 'receipt' ? 'receipt_voucher' : 'payment_voucher';
+    const renderData: DocumentRenderData = {
+      business: {
+        name: data.businessSettings?.businessName,
+        phone1: data.businessSettings?.phone1,
+        phone2: data.businessSettings?.phone2,
+        address: data.businessSettings?.address,
+        logo: data.businessSettings?.logo,
+      },
+      document: {
+        number: data.voucherNo,
+        title: data.type === 'receipt' ? 'سند قبض مالي' : 'سند صرف مالي',
+        date: data.date,
+        time: data.time,
+        cashierName: data.employeeName,
+        paymentMethod: data.paymentMethod,
+        notes: data.notes,
+      },
+      party: {
+        name: data.partyName,
+        phone: data.partyPhone,
+        currentBalance: data.currentBalance,
+      },
+      totals: {
+        netTotal: data.amount,
+        paid: data.amount,
+      },
+    };
+    await this.printDocument(docType, renderData, format);
   }
 }
-
-
