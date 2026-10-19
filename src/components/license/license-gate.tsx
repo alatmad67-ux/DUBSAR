@@ -125,7 +125,7 @@ export function LicenseGate({ children }: LicenseGateProps) {
               </div>
               <div>
                 <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                  <span>DUBSAR 2.0</span>
+                  <span>DUBSAR</span>
                   <Badge variant="outline" className="text-[10px] bg-amber-500/20 text-amber-300 border-amber-500/40 font-mono">
                     Lifetime Edition
                   </Badge>
@@ -228,7 +228,7 @@ export function LicenseGate({ children }: LicenseGateProps) {
             <span className="font-mono text-white tracking-wider">07858833838</span>
           </div>
           <div className="text-[11px] text-slate-500">
-            DUBSAR 2.0 • جميع الحقوق محفوظة
+            DUBSAR • جميع الحقوق محفوظة
           </div>
         </div>
       </Card>

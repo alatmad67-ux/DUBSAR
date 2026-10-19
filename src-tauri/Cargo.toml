@@ -1,8 +1,8 @@
 
 [package]
 name = "dubsar-app"
-version = "2.0.8"
-description = "DUBSAR 2.0 Local-First Business Management"
+version = "2.0.9"
+description = "DUBSAR Local-First Business Management"
 authors = ["Dubsar Team"]
 edition = "2021"
 

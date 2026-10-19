@@ -69,6 +69,10 @@ export interface UnifiedAppSettings {
   autoPrintOnSave: boolean;
   printCopies: number;
 
+  // Inventory & Sales Policies
+  allowNegativeStock: boolean;
+  preventSaleOutOfStock: boolean;
+
   [key: string]: any;
 }
 
@@ -118,6 +122,9 @@ const DEFAULT_UNIFIED_SETTINGS: UnifiedAppSettings = {
   selectedA4Printer: '',
   autoPrintOnSave: true,
   printCopies: 1,
+
+  allowNegativeStock: true,
+  preventSaleOutOfStock: false,
 };
 
 export class LocalAuthService {
@@ -159,6 +166,12 @@ export class LocalAuthService {
     merged.showOrganizerName = raw.showOrganizerName !== undefined ? Boolean(raw.showOrganizerName) : true;
     merged.showSupplierName = raw.showSupplierName !== undefined ? Boolean(raw.showSupplierName) : true;
     merged.showSignatures = raw.showSignatures !== undefined ? Boolean(raw.showSignatures) : true;
+
+    const allowNegative = raw.allowNegativeStock !== undefined
+      ? Boolean(raw.allowNegativeStock)
+      : (raw.preventSaleOutOfStock !== undefined ? !Boolean(raw.preventSaleOutOfStock) : true);
+    merged.allowNegativeStock = allowNegative;
+    merged.preventSaleOutOfStock = !allowNegative;
 
     const footer = raw.footerNotes ?? raw.invoiceFooterNotes ?? raw.footerText ?? merged.footerNotes;
     merged.footerNotes = footer;

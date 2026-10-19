@@ -178,11 +178,12 @@ export function AdminSidebar() {
       {/* Brand Header */}
       <SidebarHeader className="h-16 flex flex-col items-center justify-center border-b border-white/10 px-3 bg-black/20 shrink-0">
         <Link href="/admin" className="flex items-center gap-2.5 w-full justify-start px-1">
-          <div className="h-9 w-9 bg-white rounded-xl flex items-center justify-center text-primary shadow-md shrink-0">
-            <ScrollText className="h-5 w-5" />
+          <div className="h-9 w-9 rounded-xl overflow-hidden shadow-md shrink-0 border border-white/20 bg-white/10 flex items-center justify-center p-0.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/app-icon.png" alt="DUBSAR" className="h-full w-full object-contain rounded-lg" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden text-right">
-            <span className="text-base font-black tracking-tight text-white leading-tight">DUBSAR 2.0</span>
+            <span className="text-base font-black tracking-tight text-white leading-tight">DUBSAR</span>
             <span className="text-[9px] font-bold text-amber-300 tracking-wider">Lifetime Edition</span>
           </div>
         </Link>

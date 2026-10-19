@@ -7,7 +7,20 @@ use serde_json::{json, Value};
 use std::{fs, path::PathBuf};
 use uuid::Uuid;
 
-const SCHEMA_VERSION: i32 = 8;
+const SCHEMA_VERSION: i32 = 9;
+
+const MIGRATION_9: &str = r#"
+CREATE TABLE IF NOT EXISTS warehouse_stock_new (
+ warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
+ product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+ quantity INTEGER NOT NULL DEFAULT 0,
+ updated_at INTEGER NOT NULL,
+ PRIMARY KEY (warehouse_id, product_id)
+);
+INSERT OR IGNORE INTO warehouse_stock_new SELECT warehouse_id, product_id, quantity, updated_at FROM warehouse_stock;
+DROP TABLE warehouse_stock;
+ALTER TABLE warehouse_stock_new RENAME TO warehouse_stock;
+"#;
 
 const MIGRATION_8: &str = r#"
 CREATE TABLE IF NOT EXISTS tasks (
@@ -89,7 +102,7 @@ CREATE TABLE IF NOT EXISTS warehouses (
 CREATE TABLE IF NOT EXISTS warehouse_stock (
  warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
- quantity INTEGER NOT NULL DEFAULT 0 CHECK(quantity >= 0),
+ quantity INTEGER NOT NULL DEFAULT 0,
  updated_at INTEGER NOT NULL,
  PRIMARY KEY (warehouse_id, product_id)
 );
@@ -450,23 +463,45 @@ impl Database {
         }
 
         let total = (subtotal - discount).max(0.0);
-        if paid < 0.0 || paid > total { return Err("قيمة الدفع غير صالحة".to_string()); }
-        if payment_method == "cash" && (paid - total).abs() > 0.01 { return Err("الشراء النقدي يجب أن يكون مدفوعاً بالكامل".to_string()); }
-        let status = if paid < total { "pending" } else { "paid" };
+        if paid < 0.0 { return Err("قيمة الدفع لا يمكن أن تكون سالبة".to_string()); }
+        let actual_paid = if paid >= total - 0.01 { total } else { paid };
+        let status = if actual_paid < total - 0.01 { "pending" } else { "paid" };
 
-        transaction.execute("INSERT INTO purchases (id, purchase_no, supplier_id, warehouse_id, total_amount, paid_amount, discount_amount, payment_method, payment_status, created_by, notes, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)", params![purchase_id, purchase_no, supplier_id, warehouse_id, total, paid, discount, payment_method, status, user.get("id").and_then(Value::as_str), optional_string(purchase, &["notes"]), now()]).map_err(unique_or_db_error)?;
+        transaction.execute("INSERT INTO purchases (id, purchase_no, supplier_id, warehouse_id, total_amount, paid_amount, discount_amount, payment_method, payment_status, created_by, notes, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)", params![purchase_id, purchase_no, supplier_id, warehouse_id, total, actual_paid, discount, payment_method, status, user.get("id").and_then(Value::as_str), optional_string(purchase, &["notes"]), now()]).map_err(unique_or_db_error)?;
 
         for item in prepared_items {
             transaction.execute("INSERT INTO purchase_items (id, purchase_id, product_id, quantity, unit_cost, total_cost) VALUES (?1, ?2, ?3, ?4, ?5, ?6)", params![Uuid::new_v4().to_string(), purchase_id, item.product_id, item.quantity, item.unit_cost, item.total_cost]).map_err(db_error)?;
             transaction.execute("UPDATE warehouse_stock SET quantity = quantity + ?1, updated_at = ?2 WHERE warehouse_id = ?3 AND product_id = ?4", params![item.quantity, now(), warehouse_id, item.product_id]).map_err(db_error)?;
             sync_total_stock(&transaction, &item.product_id)?;
             insert_stock_movement(&transaction, &item.product_id, &warehouse_id, "purchase", item.quantity, item.before, item.before + item.quantity, user, Some("فاتورة شراء"))?;
+
+            // Update product's purchase_price to the last purchase cost (Requirement 16)
+            transaction.execute(
+                "UPDATE products SET purchase_price = ?1, updated_at = ?2 WHERE id = ?3",
+                params![item.unit_cost, now(), item.product_id],
+            ).map_err(db_error)?;
+
+            // If user explicitly updated selling prices in purchase invoice
+            let raw_item = items.iter().find(|it| {
+                it.get("productId").and_then(Value::as_str) == Some(&item.product_id) ||
+                it.get("id").and_then(Value::as_str) == Some(&item.product_id)
+            });
+            if let Some(r_it) = raw_item {
+                if r_it.get("updatePrices").and_then(Value::as_bool).unwrap_or(false) {
+                    if let Some(new_retail) = optional_number(r_it, &["retailPrice", "retail_price"]) {
+                        transaction.execute("UPDATE products SET retail_price = ?1, updated_at = ?2 WHERE id = ?3", params![new_retail, now(), item.product_id]).map_err(db_error)?;
+                    }
+                    if let Some(new_wholesale) = optional_number(r_it, &["wholesalePrice", "wholesale_price"]) {
+                        transaction.execute("UPDATE products SET wholesale_price = ?1, updated_at = ?2 WHERE id = ?3", params![new_wholesale, now(), item.product_id]).map_err(db_error)?;
+                    }
+                }
+            }
         }
 
-        if total > paid { transaction.execute("UPDATE suppliers SET balance = COALESCE(balance, 0) + ?1 WHERE id = ?2", params![total - paid, supplier_id]).map_err(db_error)?; }
+        if total > actual_paid + 0.01 { transaction.execute("UPDATE suppliers SET balance = COALESCE(balance, 0) + ?1 WHERE id = ?2", params![total - actual_paid, supplier_id]).map_err(db_error)?; }
         transaction.execute("INSERT INTO audit_logs (user_id, user_name, action, module, details, timestamp) VALUES (?1, ?2, 'اعتماد فاتورة شراء', 'purchases', ?3, ?4)", params![user.get("id").and_then(Value::as_str), user.get("displayName").and_then(Value::as_str), format!("فاتورة {purchase_no} بقيمة {total}"), now()]).map_err(db_error)?;
         transaction.commit().map_err(db_error)?;
-        Ok(json!({"success": true, "purchaseId": purchase_id, "purchaseNo": purchase_no, "totalAmount": total, "paymentStatus": status}))
+        Ok(json!({"success": true, "purchaseId": purchase_id, "purchaseNo": purchase_no, "totalAmount": total, "paidAmount": actual_paid, "paymentStatus": status}))
     }
 
     pub fn warehouses(&self) -> Result<Vec<Value>, String> {
@@ -643,6 +678,10 @@ impl Database {
         let warehouse_id = payment.get("warehouseId").and_then(Value::as_str).unwrap_or("default-warehouse").to_string();
         let discount = optional_number(payment, &["discount"]).unwrap_or(0.0);
         if discount < 0.0 { return Err("الخصم لا يمكن أن يكون سالباً".to_string()); }
+        let allow_negative_stock = payment.get("allowNegativeStock")
+            .and_then(Value::as_bool)
+            .or_else(|| payment.get("allow_negative_stock").and_then(Value::as_bool))
+            .unwrap_or(true);
         let user_id = user.get("id").and_then(Value::as_str).map(str::to_string);
         let user_name = user.get("displayName").and_then(Value::as_str)
             .or_else(|| user.get("userName").and_then(Value::as_str))
@@ -714,17 +753,18 @@ impl Database {
                 [&product_id],
                 |row| Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?, row.get::<_, f64>(2)?, row.get::<_, f64>(3)?, row.get::<_, i64>(4)?)),
             ).optional().map_err(db_error)?.ok_or_else(|| format!("المادة غير موجودة: {product_id}"))?;
-            if row.4 < quantity {
+            if !allow_negative_stock && row.4 < quantity {
                 return Err(format!("المخزون غير كاف للمادة {}: المتاح {} والمطلوب {}", row.0, row.4, quantity));
             }
-            let unit_price = match price_type.as_str() {
+            let default_price = match price_type.as_str() {
                 "wholesale" => row.2,
                 "agent" => row.3,
                 _ => row.1,
             };
+            let unit_price = optional_number(item, &["price", "unitPrice", "unit_price"]).unwrap_or(default_price);
             if unit_price < 0.0 { return Err(format!("سعر المادة غير صالح: {}", row.0)); }
             let warehouse_before: i64 = transaction.query_row("SELECT quantity FROM warehouse_stock WHERE warehouse_id = ?1 AND product_id = ?2", params![warehouse_id, product_id], |row| row.get(0)).map_err(db_error)?;
-            if warehouse_before < quantity { return Err(format!("المخزون غير كاف للمادة {} في المستودع المحدد", row.0)); }
+            if !allow_negative_stock && warehouse_before < quantity { return Err(format!("المخزون غير كاف للمادة {} في المستودع المحدد", row.0)); }
             let line_total = unit_price * quantity as f64;
             total += line_total;
 
@@ -739,15 +779,19 @@ impl Database {
         }
 
         let final_total = (total - discount).max(0.0);
-        if paid_amount < 0.0 || paid_amount > final_total + 0.01 {
-            return Err("قيمة الدفع غير صالحة".to_string());
+        if paid_amount < 0.0 {
+            return Err("قيمة الدفع لا يمكن أن تكون سالبة".to_string());
         }
-        if payment_method == "cash" && (paid_amount - final_total).abs() > 0.01 {
-            return Err("البيع النقدي يجب أن يكون مدفوعاً بالكامل".to_string());
-        }
-        let payment_status = if payment_method == "credit" || paid_amount < final_total { "pending" } else { "paid" };
-        if payment_method == "credit" && customer_id.is_none() {
-            return Err("البيع الآجل يتطلب اختيار أو إدخال بيانات الزبون".to_string());
+
+        let actual_paid = if paid_amount >= final_total - 0.01 {
+            final_total
+        } else {
+            paid_amount
+        };
+
+        let payment_status = if actual_paid < final_total - 0.01 { "pending" } else { "paid" };
+        if payment_status == "pending" && customer_id.is_none() {
+            return Err("البيع الآجل أو غير مكتمل الدفع يتطلب اختيار أو إدخال بيانات الزبون لحفظ الرصيد المتبقي".to_string());
         }
         if let Some(customer_id_ref) = customer_id.as_deref() {
             let customer_exists: bool = transaction.query_row("SELECT EXISTS(SELECT 1 FROM customers WHERE id = ?1)", [customer_id_ref], |row| row.get(0)).map_err(db_error)?;
@@ -757,7 +801,7 @@ impl Database {
         // 1. إدراج الفاتورة الأساسية أولاً في جدول sales حتى يتم تلبية متطلبات المفتاح الأجنبي (Foreign Key)
         transaction.execute(
             "INSERT INTO sales (id, invoice_no, customer_id, total_amount, paid_amount, payment_method, created_by, created_at, price_type, payment_status, discount_amount) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-            params![sale_id, invoice_no, customer_id, final_total, paid_amount, payment_method, user_id, now(), price_type, payment_status, discount],
+            params![sale_id, invoice_no, customer_id, final_total, actual_paid, payment_method, user_id, now(), price_type, payment_status, discount],
         ).map_err(unique_or_db_error)?;
 
         // 2. إدراج بنود الفاتورة وتحديث المخزون
@@ -766,18 +810,25 @@ impl Database {
                 "INSERT INTO sale_items (id, sale_id, product_id, quantity, unit_price, total_price, price_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![Uuid::new_v4().to_string(), sale_id, item.product_id, item.quantity, item.unit_price, item.line_total, price_type],
             ).map_err(db_error)?;
-            let changed = transaction.execute(
-                "UPDATE products SET stock_quantity = stock_quantity - ?1, updated_at = ?2 WHERE id = ?3 AND stock_quantity >= ?1",
-                params![item.quantity, now(), item.product_id],
-            ).map_err(db_error)?;
+            let changed = if allow_negative_stock {
+                transaction.execute(
+                    "UPDATE products SET stock_quantity = stock_quantity - ?1, updated_at = ?2 WHERE id = ?3",
+                    params![item.quantity, now(), item.product_id],
+                ).map_err(db_error)?
+            } else {
+                transaction.execute(
+                    "UPDATE products SET stock_quantity = stock_quantity - ?1, updated_at = ?2 WHERE id = ?3 AND stock_quantity >= ?1",
+                    params![item.quantity, now(), item.product_id],
+                ).map_err(db_error)?
+            };
             if changed != 1 { return Err(format!("تعذر تحديث مخزون المادة {}", item.product_name)); }
             transaction.execute("UPDATE warehouse_stock SET quantity = quantity - ?1, updated_at = ?2 WHERE warehouse_id = ?3 AND product_id = ?4", params![item.quantity, now(), warehouse_id, item.product_id]).map_err(db_error)?;
             insert_stock_movement(&transaction, &item.product_id, &warehouse_id, "sale", -item.quantity, item.warehouse_before, item.warehouse_before - item.quantity, user, Some("فاتورة بيع"))?;
         }
 
         if let Some(ref customer_id) = customer_id {
-            if payment_method == "credit" || paid_amount < final_total {
-                transaction.execute("UPDATE customers SET balance = COALESCE(balance, 0) + ?1 WHERE id = ?2", params![final_total - paid_amount, customer_id]).map_err(db_error)?;
+            if actual_paid < final_total - 0.01 {
+                transaction.execute("UPDATE customers SET balance = COALESCE(balance, 0) + ?1 WHERE id = ?2", params![final_total - actual_paid, customer_id]).map_err(db_error)?;
             }
         }
         transaction.execute(
@@ -785,7 +836,7 @@ impl Database {
             params![user_id, user_name, "عملية بيع", format!("فاتورة {invoice_no} بقيمة {final_total}"), now()],
         ).map_err(db_error)?;
         transaction.commit().map_err(db_error)?;
-        Ok(json!({ "success": true, "saleId": sale_id, "invoiceNo": invoice_no, "totalAmount": final_total, "paidAmount": paid_amount, "paymentStatus": payment_status, "customerId": customer_id }))
+        Ok(json!({ "success": true, "saleId": sale_id, "invoiceNo": invoice_no, "totalAmount": final_total, "paidAmount": actual_paid, "paymentStatus": payment_status, "customerId": customer_id }))
     }
 
     pub fn update_sale(&self, id: &str, cart: &Value, customer: &Value, payment: &Value, user: &Value) -> Result<Value, String> {
@@ -886,11 +937,15 @@ impl Database {
             quantity: i64,
             unit_price: f64,
             line_total: f64,
-            product_name: String,
         }
 
         let mut prepared_items = Vec::new();
         let mut total = 0.0;
+
+        let allow_negative_stock = payment.get("allowNegativeStock")
+            .and_then(Value::as_bool)
+            .or_else(|| payment.get("allow_negative_stock").and_then(Value::as_bool))
+            .unwrap_or(true);
 
         for item in items {
             let product_id = required_string(item, &["id", "productId"])?;
@@ -903,14 +958,16 @@ impl Database {
                 |r| Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?, r.get::<_, f64>(2)?, r.get::<_, f64>(3)?, r.get::<_, i64>(4)?)),
             ).optional().map_err(db_error)?.ok_or_else(|| format!("المادة غير موجودة: {product_id}"))?;
 
-            if row.4 < quantity {
+            if !allow_negative_stock && row.4 < quantity {
                 return Err(format!("المخزون غير كاف للمادة {}: المتاح {} والمطلوب {}", row.0, row.4, quantity));
             }
-            let unit_price = match price_type.as_str() {
+            let default_price = match price_type.as_str() {
                 "wholesale" => row.2,
                 "agent" => row.3,
                 _ => row.1,
             };
+            let unit_price = optional_number(item, &["price", "unitPrice", "unit_price"]).unwrap_or(default_price);
+            if unit_price < 0.0 { return Err(format!("سعر المادة غير صالح: {}", row.0)); }
             let line_total = unit_price * quantity as f64;
             total += line_total;
 
@@ -919,17 +976,21 @@ impl Database {
                 quantity,
                 unit_price,
                 line_total,
-                product_name: row.0,
             });
         }
 
         let final_total = (total - discount).max(0.0);
-        let payment_status = if payment_method == "credit" || paid_amount < final_total { "pending" } else { "paid" };
+        let actual_paid = if paid_amount >= final_total - 0.01 {
+            final_total
+        } else {
+            paid_amount.max(0.0)
+        };
+        let payment_status = if actual_paid < final_total - 0.01 { "pending" } else { "paid" };
 
         // 7. Update sales table
         transaction.execute(
             "UPDATE sales SET customer_id = ?1, total_amount = ?2, paid_amount = ?3, payment_method = ?4, price_type = ?5, payment_status = ?6, discount_amount = ?7 WHERE id = ?8",
-            params![customer_id, final_total, paid_amount, payment_method, price_type, payment_status, discount, id],
+            params![customer_id, final_total, actual_paid, payment_method, price_type, payment_status, discount, id],
         ).map_err(db_error)?;
 
         // 8. Insert new sale_items and deduct stock
@@ -939,10 +1000,18 @@ impl Database {
                 params![Uuid::new_v4().to_string(), id, item.product_id, item.quantity, item.unit_price, item.line_total, price_type],
             ).map_err(db_error)?;
 
-            transaction.execute(
-                "UPDATE products SET stock_quantity = stock_quantity - ?1, updated_at = ?2 WHERE id = ?3 AND stock_quantity >= ?1",
-                params![item.quantity, now(), item.product_id],
-            ).map_err(db_error)?;
+            let changed = if allow_negative_stock {
+                transaction.execute(
+                    "UPDATE products SET stock_quantity = stock_quantity - ?1, updated_at = ?2 WHERE id = ?3",
+                    params![item.quantity, now(), item.product_id],
+                ).map_err(db_error)?
+            } else {
+                transaction.execute(
+                    "UPDATE products SET stock_quantity = stock_quantity - ?1, updated_at = ?2 WHERE id = ?3 AND stock_quantity >= ?1",
+                    params![item.quantity, now(), item.product_id],
+                ).map_err(db_error)?
+            };
+            if changed != 1 { return Err(format!("تعذر تحديث مخزون المادة {}", item.product_id)); }
 
             transaction.execute(
                 "UPDATE warehouse_stock SET quantity = quantity - ?1, updated_at = ?2 WHERE warehouse_id = ?3 AND product_id = ?4",
@@ -952,10 +1021,10 @@ impl Database {
 
         // 9. Update new customer balance if credit
         if let Some(ref cid) = customer_id {
-            if payment_method == "credit" || paid_amount < final_total {
+            if actual_paid < final_total - 0.01 {
                 transaction.execute(
                     "UPDATE customers SET balance = COALESCE(balance, 0) + ?1 WHERE id = ?2",
-                    params![final_total - paid_amount, cid]
+                    params![final_total - actual_paid, cid]
                 ).map_err(db_error)?;
             }
         }
@@ -1185,6 +1254,10 @@ fn migrate(connection: &Connection) -> Result<(), String> {
         transaction.execute_batch(MIGRATION_8).map_err(db_error)?;
         transaction.pragma_update(None, "user_version", 8).map_err(db_error)?;
     }
+    if current < 9 {
+        transaction.execute_batch(MIGRATION_9).map_err(db_error)?;
+        transaction.pragma_update(None, "user_version", 9).map_err(db_error)?;
+    }
     transaction.commit().map_err(db_error)
 }
 
@@ -1286,9 +1359,18 @@ mod tests {
     fn insufficient_stock_rolls_back_sale() {
         let database = test_database();
         let product = database.create_product(&json!({"name": "Test", "retailPrice": 1000.0, "stockQuantity": 1})).expect("product should be created");
-        assert!(database.process_sale(&json!([{"id": product["id"], "quantity": 2}]), &json!({"name": "زبون نقدي"}), &json!({"method": "cash", "paidAmount": 2000.0}), &json!({"id": "u1", "displayName": "Owner", "role": "owner", "permissions": ["*"]})).is_err());
+        assert!(database.process_sale(&json!([{"id": product["id"], "quantity": 2}]), &json!({"name": "زبون نقدي"}), &json!({"method": "cash", "paidAmount": 2000.0, "allowNegativeStock": false}), &json!({"id": "u1", "displayName": "Owner", "role": "owner", "permissions": ["*"]})).is_err());
         assert_eq!(database.sales().expect("sales should load").len(), 0);
         assert_eq!(database.products().expect("products should load")[0]["stockQuantity"], 1);
+    }
+
+    #[test]
+    fn negative_stock_sale_succeeds_when_allowed() {
+        let database = test_database();
+        let product = database.create_product(&json!({"name": "Negative Stock Test", "retailPrice": 1500.0, "stockQuantity": 0})).expect("product should be created");
+        let result = database.process_sale(&json!([{"id": product["id"], "quantity": 3}]), &json!({"name": "زبون نقدي"}), &json!({"method": "cash", "paidAmount": 4500.0, "allowNegativeStock": true}), &json!({"id": "u1", "displayName": "Owner", "role": "owner", "permissions": ["*"]}));
+        assert!(result.is_ok(), "Negative stock sale should succeed when allowed");
+        assert_eq!(database.products().expect("products should load")[0]["stockQuantity"], -3);
     }
 
     #[test]

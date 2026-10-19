@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { execSync } = require('child_process');
+const { execSync, execFile } = require('child_process');
 
 const REPO_OWNER = 'alatmad67-ux';
 const REPO_NAME = 'DUBSAR';
@@ -42,17 +42,37 @@ if (tokenArg) {
 const nsisDir = path.join(ROOT_DIR, 'src-tauri', 'target', 'release', 'bundle', 'nsis');
 const msiDir = path.join(ROOT_DIR, 'src-tauri', 'target', 'release', 'bundle', 'msi');
 
-const exeName = `DUBSAR 2.0_${version}_x64-setup.exe`;
-const exePath = path.join(nsisDir, exeName);
-const sigPath = path.join(nsisDir, `${exeName}.sig`);
-const msiName = `DUBSAR 2.0_${version}_x64_en-US.msi`;
-const msiPath = path.join(msiDir, msiName);
+let exeName = `DUBSAR_${version}_x64-setup.exe`;
+let exePath = path.join(nsisDir, exeName);
+let sigPath = path.join(nsisDir, `${exeName}.sig`);
+
+if (!fs.existsSync(exePath) && fs.existsSync(path.join(nsisDir, `DUBSAR 2.0_${version}_x64-setup.exe`))) {
+  exeName = `DUBSAR 2.0_${version}_x64-setup.exe`;
+  exePath = path.join(nsisDir, exeName);
+  sigPath = path.join(nsisDir, `${exeName}.sig`);
+}
+
+let msiName = `DUBSAR_${version}_x64_en-US.msi`;
+let msiPath = path.join(msiDir, msiName);
+if (!fs.existsSync(msiPath) && fs.existsSync(path.join(msiDir, `DUBSAR 2.0_${version}_x64_en-US.msi`))) {
+  msiName = `DUBSAR 2.0_${version}_x64_en-US.msi`;
+  msiPath = path.join(msiDir, msiName);
+}
 
 if (!fs.existsSync(exePath) || !fs.existsSync(sigPath)) {
   console.log('⚠️ لم يتم العثور على ملفات التثبيت المبنية لهذا الإصدار.');
   console.log('جاري تشغيل بناء النسخة الموقعة desktop:build الآن...');
   try {
     execSync('npm.cmd run desktop:build', { stdio: 'inherit', cwd: ROOT_DIR });
+    if (!fs.existsSync(exePath) && fs.existsSync(path.join(nsisDir, `DUBSAR_${version}_x64-setup.exe`))) {
+      exeName = `DUBSAR_${version}_x64-setup.exe`;
+      exePath = path.join(nsisDir, exeName);
+      sigPath = path.join(nsisDir, `${exeName}.sig`);
+    } else if (!fs.existsSync(exePath) && fs.existsSync(path.join(nsisDir, `DUBSAR 2.0_${version}_x64-setup.exe`))) {
+      exeName = `DUBSAR 2.0_${version}_x64-setup.exe`;
+      exePath = path.join(nsisDir, exeName);
+      sigPath = path.join(nsisDir, `${exeName}.sig`);
+    }
   } catch (err) {
     console.error('❌ فشل بناء النسخة:', err.message);
     process.exit(1);
@@ -66,12 +86,11 @@ if (!fs.existsSync(exePath) || !fs.existsSync(sigPath)) {
 
 // 3. Prepare latest.json
 const signature = fs.readFileSync(sigPath, 'utf8').trim();
-// Standard release filename on GitHub
-const remoteExeName = `DUBSAR.2.0_${version}_x64-setup.exe`;
+const remoteExeName = exeName;
 
 const latestJsonContent = {
   version: version,
-  notes: `DUBSAR ${version} - التحديث الرسمي: إعادة تصميم وهيكلة شريط معلومات الفاتورة وبيانات الزبون ونوع البيع والمستودع وفق التصميم المعتمد مع الشارة المركزية، وتحسينات طباعة وتصدير الفواتير.`,
+  notes: `DUBSAR ${version} - التحديث الرسمي: توحيد ألوان الطباعة باللون الأسود لكافة الفواتير والمستندات، وإضافة أيقونة النظام الرسمية، واعتماد اسم DUBSAR، وتحسينات وإصلاحات شاملة للمبيعات والمخزون.`,
   pub_date: new Date().toISOString(),
   platforms: {
     'windows-x86_64': {
@@ -100,7 +119,7 @@ fs.copyFileSync(sigPath, distSigPath);
 let hasMsi = false;
 let distMsiPath = '';
 if (fs.existsSync(msiPath)) {
-  distMsiPath = path.join(DIST_RELEASE_DIR, `DUBSAR.2.0_${version}_x64_en-US.msi`);
+  distMsiPath = path.join(DIST_RELEASE_DIR, msiName);
   fs.copyFileSync(msiPath, distMsiPath);
   hasMsi = true;
 }
@@ -173,41 +192,37 @@ function githubApi(endpoint, method = 'GET', data = null, contentType = 'applica
   });
 }
 
-// Upload Release Asset
+// Upload Release Asset using curl.exe for reliable binary streaming
 function uploadAsset(uploadUrlTemplate, filePath, fileName, contentType = 'application/octet-stream') {
-  const fileBytes = fs.readFileSync(filePath);
   const uploadUrl = uploadUrlTemplate.replace(/\{(\?name,label|name)\}/g, `?name=${encodeURIComponent(fileName)}`);
 
   return new Promise((resolve, reject) => {
-    const url = new URL(uploadUrl);
-    const options = {
-      hostname: url.hostname,
-      path: url.pathname + url.search,
-      method: 'POST',
-      headers: {
-        'User-Agent': 'DUBSAR-Release-Publisher',
-        'Authorization': `token ${githubToken}`,
-        'Content-Type': contentType,
-        'Content-Length': fileBytes.length
+    const curlArgs = [
+      '-s', '-S',
+      '-X', 'POST',
+      '-H', `Authorization: token ${githubToken}`,
+      '-H', `Content-Type: ${contentType}`,
+      '-H', 'User-Agent: DUBSAR-Release-Publisher',
+      '--data-binary', `@${path.resolve(filePath)}`,
+      uploadUrl
+    ];
+
+    execFile('curl.exe', curlArgs, { maxBuffer: 20 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err) {
+        return reject(new Error(`فشل رفع ${fileName} عبر curl: ${stderr || err.message}`));
       }
-    };
-
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', chunk => { body += chunk; });
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          console.log(`  ✔ تم رفع: ${fileName}`);
-          resolve(JSON.parse(body || '{}'));
-        } else {
-          reject(new Error(`فشل رفع ${fileName} (${res.statusCode}): ${body}`));
+      try {
+        const json = JSON.parse(stdout);
+        if (json.errors || (json.message && !json.id && !json.browser_download_url)) {
+          return reject(new Error(`GitHub upload error: ${stdout}`));
         }
-      });
+        console.log(`  ✔ تم رفع: ${fileName}`);
+        resolve(json);
+      } catch (e) {
+        console.log(`  ✔ تم رفع: ${fileName}`);
+        resolve({});
+      }
     });
-
-    req.on('error', reject);
-    req.write(fileBytes);
-    req.end();
   });
 }
 
@@ -238,16 +253,21 @@ async function runPublish() {
 
     // Function to safely upload or overwrite existing asset
     async function safeUploadAsset(filePath, fileName, contentType) {
-      if (release.assets && Array.isArray(release.assets)) {
-        const existing = release.assets.find(a => a.name === fileName);
-        if (existing) {
-          console.log(`  🔄 جاري حذف النسخة السابقة من: ${fileName}...`);
-          try {
-            await githubApi(`/repos/${REPO_OWNER}/${REPO_NAME}/releases/assets/${existing.id}`, 'DELETE');
-          } catch (delErr) {
-            console.warn(`  ⚠️ تعذر حذف ${fileName}:`, delErr.message);
+      try {
+        const freshRelease = await githubApi(`/repos/${REPO_OWNER}/${REPO_NAME}/releases/${release.id}`);
+        if (freshRelease.assets && Array.isArray(freshRelease.assets)) {
+          const existing = freshRelease.assets.find(a => a.name === fileName);
+          if (existing) {
+            console.log(`  🔄 جاري حذف النسخة السابقة من: ${fileName}...`);
+            try {
+              await githubApi(`/repos/${REPO_OWNER}/${REPO_NAME}/releases/assets/${existing.id}`, 'DELETE');
+            } catch (delErr) {
+              console.warn(`  ⚠️ تعذر حذف ${fileName}:`, delErr.message);
+            }
           }
         }
+      } catch (e) {
+        // ignore
       }
       await uploadAsset(uploadUrl, filePath, fileName, contentType);
     }

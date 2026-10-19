@@ -130,7 +130,7 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
       </div>
       <div class="a4-brand-seal">
         ${business.logo ? `<img src="${business.logo}" class="a4-small-logo" alt="شعار" />` : ''}
-        <div class="a4-dubsar-tag">DUBSAR 2.0</div>
+        <div class="a4-dubsar-tag">DUBSAR</div>
       </div>
     </div>
   `;
@@ -163,13 +163,14 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
           flex-direction: column;
           font-size: 11px;
           line-height: 1.4;
+          color: #000000;
         }
 
         /* Headers */
         .a4-custom-header {
           width: 100%;
           margin-bottom: 6px;
-          border-bottom: 2px solid var(--dubsar-navy);
+          border-bottom: 2px solid #000000;
           padding-bottom: 4px;
         }
 
@@ -184,7 +185,7 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-bottom: 2px solid var(--dubsar-navy);
+          border-bottom: 2px solid #000000;
           padding-bottom: 8px;
           margin-bottom: 8px;
         }
@@ -192,26 +193,26 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
         .a4-company-name {
           font-size: 20px;
           font-weight: 900;
-          color: var(--dubsar-navy);
+          color: #000000;
           margin-bottom: 2px;
         }
 
         .a4-company-desc {
           font-size: 11px;
-          color: var(--dubsar-muted);
+          color: #000000;
           margin-bottom: 4px;
         }
 
         .a4-company-contact {
           font-size: 10.5px;
-          color: #334155;
+          color: #000000;
           display: flex;
           align-items: center;
           gap: 6px;
         }
 
         .contact-sep {
-          color: #cbd5e1;
+          color: #000000;
         }
 
         .a4-brand-seal {
@@ -229,9 +230,9 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
 
         .a4-dubsar-tag {
           font-size: 9px;
-          font-weight: 800;
+          font-weight: 900;
           letter-spacing: 1px;
-          color: var(--dubsar-gold);
+          color: #000000;
           font-family: 'Courier New', monospace;
         }
 
@@ -239,8 +240,8 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
         .a4-invoice-info-bar {
           position: relative;
           background: #ffffff;
-          border: 1px solid #cbd5e1;
-          border-radius: 12px;
+          border: 1.5px solid #000000;
+          border-radius: 8px;
           padding: 10px 14px 9px 14px;
           margin: 12px 0 10px 0;
         }
@@ -255,15 +256,14 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
         }
 
         .a4-info-badge {
-          background: #0b1329;
-          color: #ffffff;
+          background: #000000;
+          color: #ffffff !important;
           font-size: 11px;
           font-weight: 800;
           padding: 2px 22px;
           border-radius: 9999px;
           letter-spacing: 0.5px;
           white-space: nowrap;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.15);
         }
 
         .a4-info-grid {
@@ -281,17 +281,18 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
           font-size: 11px;
           white-space: nowrap;
           overflow: hidden;
+          color: #000000;
         }
 
         .info-lbl {
-          color: #475569;
+          color: #000000;
           font-weight: 700;
           flex-shrink: 0;
           font-size: 10.5px;
         }
 
         .info-val {
-          color: #0f172a;
+          color: #000000;
           font-weight: 800;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -303,43 +304,45 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
           border-collapse: collapse;
           margin-bottom: 10px;
           table-layout: fixed;
-          border: 1px solid var(--dubsar-border);
-          border-radius: 6px;
+          border: 1.5px solid #000000;
+          border-radius: 4px;
           overflow: hidden;
         }
 
         .a4-table thead th {
-          background: var(--dubsar-navy);
-          color: #ffffff;
+          background: #000000;
+          color: #ffffff !important;
           font-size: 10px;
           font-weight: 800;
           padding: 6px 4px;
-          border: 1px solid #1e3a5f;
+          border: 1px solid #000000;
           white-space: nowrap;
         }
 
         .a4-table tbody td {
           padding: 5px 4px;
           font-size: 10px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid #000000;
           vertical-align: middle;
+          color: #000000;
+          background: #ffffff;
         }
 
         .a4-table tbody tr:nth-child(even) {
-          background: #f8fafc;
+          background: #ffffff;
         }
 
         .center { text-align: center; }
         .product-name {
           font-weight: 700;
-          color: #0f172a;
+          color: #000000;
           white-space: normal;
           word-break: break-word;
           padding-right: 6px;
         }
 
-        .table-qty-cell { color: #006494; font-size: 11px; }
-        .table-total-cell { color: #0f172a; font-size: 11px; }
+        .table-qty-cell { color: #000000; font-size: 11px; font-weight: 700; }
+        .table-total-cell { color: #000000; font-size: 11px; font-weight: 800; }
 
         /* Bottom Section: Notes & Totals */
         .a4-bottom-section {
@@ -350,8 +353,8 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
         }
 
         .a4-notes-box {
-          background: #f8fafc;
-          border: 1px solid var(--dubsar-border);
+          background: #ffffff;
+          border: 1.5px solid #000000;
           border-radius: 6px;
           padding: 8px 10px;
           display: flex;
@@ -361,13 +364,13 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
 
         .notes-content {
           font-size: 10px;
-          color: #475569;
+          color: #000000;
           line-height: 1.5;
         }
 
         .a4-totals-box {
           background: #ffffff;
-          border: 1px solid var(--dubsar-border);
+          border: 1.5px solid #000000;
           border-radius: 6px;
           overflow: hidden;
         }
@@ -378,7 +381,8 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
           align-items: center;
           padding: 4px 8px;
           font-size: 10.5px;
-          border-bottom: 1px solid #f1f5f9;
+          border-bottom: 1px solid #000000;
+          color: #000000;
         }
 
         .total-row:last-child {
@@ -386,26 +390,27 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
         }
 
         .grand-total {
-          background: linear-gradient(135deg, var(--dubsar-navy) 0%, var(--dubsar-blue) 100%);
-          color: #ffffff;
+          background: #000000;
+          color: #ffffff !important;
           font-weight: 900;
           font-size: 13px;
           padding: 7px 8px;
+          border-top: 1.5px solid #000000;
         }
 
         .debt-highlight {
-          color: #dc2626;
-          font-weight: 800;
+          color: #000000;
+          font-weight: 900;
         }
 
         .a4-balances-strip {
-          background: #fef2f2;
-          border: 1px dashed #fca5a5;
-          color: #991b1b;
+          background: #ffffff;
+          border: 1.5px solid #000000;
+          color: #000000;
           border-radius: 6px;
           padding: 6px 12px;
           font-size: 10.5px;
-          font-weight: 700;
+          font-weight: 800;
           display: flex;
           justify-content: space-around;
           margin-bottom: 8px;
@@ -419,14 +424,15 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
           margin-top: 4px;
           font-size: 10.5px;
           font-weight: 700;
-          color: #334155;
+          color: #000000;
         }
 
         .sig-box {
           text-align: center;
           min-width: 130px;
-          border-top: 1px dashed #94a3b8;
+          border-top: 1px dashed #000000;
           padding-top: 4px;
+          color: #000000;
         }
       </style>
     </head>

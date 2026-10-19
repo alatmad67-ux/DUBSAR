@@ -110,7 +110,7 @@ export class DocumentRenderer {
     for (let r = 0; r < 21; r++) {
       for (let c = 0; c < 21; c++) {
         if (modules[r][c]) {
-          rects += `<rect x="${(c * Number(cellSize)).toFixed(2)}" y="${(r * Number(cellSize)).toFixed(2)}" width="${cellSize}" height="${cellSize}" fill="#13293d" />`;
+          rects += `<rect x="${(c * Number(cellSize)).toFixed(2)}" y="${(r * Number(cellSize)).toFixed(2)}" width="${cellSize}" height="${cellSize}" fill="#000000" />`;
         }
       }
     }

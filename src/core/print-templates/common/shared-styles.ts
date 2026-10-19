@@ -13,34 +13,46 @@ export const SHARED_PRINT_RESET = `
   }
 
   :root {
-    --dubsar-navy: #13293d;
-    --dubsar-blue: #006494;
-    --dubsar-gold: #d4af37;
-    --dubsar-slate: #f8fafc;
-    --dubsar-border: #cbd5e1;
-    --dubsar-dark: #0f172a;
-    --dubsar-muted: #64748b;
+    --dubsar-navy: #000000;
+    --dubsar-blue: #000000;
+    --dubsar-gold: #000000;
+    --dubsar-slate: #ffffff;
+    --dubsar-border: #000000;
+    --dubsar-dark: #000000;
+    --dubsar-muted: #000000;
   }
 
   body {
     font-family: 'Cairo', Tahoma, Arial, sans-serif;
     background: #ffffff;
-    color: #0f172a;
+    color: #000000;
     direction: rtl;
     -webkit-font-smoothing: antialiased;
   }
 
+  /* Monochrome High-Contrast Print Rules */
+  *, td, th, span, div, p, strong, b, h1, h2, h3, h4 {
+    color: #000000;
+  }
+
+  th, .badge-white, .a4-info-badge, .grand-total, .rec-title-box {
+    color: #ffffff !important;
+  }
+
   .font-mono {
     font-family: 'Courier New', Courier, monospace;
+    color: #000000;
   }
 
   .num-ltr {
     direction: ltr !important;
     unicode-bidi: isolate;
+    color: #000000;
   }
 
   span.num-ltr, div.num-ltr {
     display: inline-block;
+    color: #000000;
   }
 
   td.num-ltr, th.num-ltr {
@@ -64,8 +76,7 @@ export const SHARED_PRINT_RESET = `
   .dubsar-minimal-footer {
     text-align: center;
     font-size: 8px;
-    color: #64748b;
-    opacity: 0.55;
+    color: #000000;
     margin-top: 10px;
     padding-top: 4px;
     user-select: none;
@@ -76,7 +87,7 @@ export const SHARED_PRINT_RESET = `
 
   .dubsar-footer-dot {
     margin: 0 4px;
-    color: #94a3b8;
+    color: #000000;
   }
 
   /* Page Break Control */
@@ -92,9 +103,23 @@ export const SHARED_PRINT_RESET = `
     body {
       margin: 0 !important;
       padding: 0 !important;
+      color: #000000 !important;
+      background: #ffffff !important;
     }
     .no-print {
       display: none !important;
+    }
+    *, td, th, span, div, p, strong, b, h1, h2, h3, h4, span.num-ltr, td.num-ltr {
+      color: #000000 !important;
+      -webkit-text-fill-color: #000000 !important;
+    }
+    th, .a4-info-badge, .grand-total, .rec-title-box {
+      color: #ffffff !important;
+      -webkit-text-fill-color: #ffffff !important;
+      background: #000000 !important;
+    }
+    * {
+      border-color: #000000 !important;
     }
   }
 `;

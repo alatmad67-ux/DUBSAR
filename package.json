@@ -1,6 +1,6 @@
 {
-  "name": "dubsar-2-pro",
-  "version": "2.0.8",
+  "name": "dubsar-pro",
+  "version": "2.0.9",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9002",

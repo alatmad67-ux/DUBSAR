@@ -164,13 +164,13 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
 
         .rec-biz-info {
           font-size: 9px;
-          color: #333333;
+          color: #000000;
           margin-bottom: 2px;
         }
 
         .rec-title-box {
           background: #000000;
-          color: #ffffff;
+          color: #ffffff !important;
           padding: 3px;
           font-size: 11px;
           font-weight: 900;
@@ -181,7 +181,7 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
 
         /* Divider */
         .rec-divider {
-          border-top: 1px dashed #444444;
+          border-top: 1px dashed #000000;
           margin: 4px 0;
         }
 
@@ -196,6 +196,7 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
           justify-content: space-between;
           font-size: 9.5px;
           margin-bottom: 2px;
+          color: #000000;
         }
 
         /* Table */
@@ -204,6 +205,7 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
           border-collapse: collapse;
           margin: 4px 0;
           table-layout: fixed;
+          color: #000000;
         }
 
         .rec-table th {
@@ -213,20 +215,22 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
           font-size: 9.5px;
           font-weight: 900;
           text-align: center;
+          color: #000000;
         }
 
         .rec-table td {
           padding: 3px 1px;
           font-size: 9px;
           vertical-align: top;
-          border-bottom: 1px dashed #dddddd;
+          border-bottom: 1px dashed #000000;
+          color: #000000;
         }
 
-        .col-num { width: 8%; text-align: center; }
-        .col-name { width: 42%; text-align: right; font-weight: 700; }
-        .col-qty { width: 12%; text-align: center; font-weight: 700; }
-        .col-price { width: 18%; text-align: center; }
-        .col-tot { width: 20%; text-align: center; font-weight: 900; }
+        .col-num { width: 8%; text-align: center; color: #000000; }
+        .col-name { width: 42%; text-align: right; font-weight: 700; color: #000000; }
+        .col-qty { width: 12%; text-align: center; font-weight: 700; color: #000000; }
+        .col-price { width: 18%; text-align: center; color: #000000; }
+        .col-tot { width: 20%; text-align: center; font-weight: 900; color: #000000; }
 
         .wrap-text {
           white-space: normal;
@@ -238,12 +242,14 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
         .rec-totals-box {
           margin: 4px 0;
           font-size: 9.5px;
+          color: #000000;
         }
 
         .rec-total-row {
           display: flex;
           justify-content: space-between;
           padding: 2px 0;
+          color: #000000;
         }
 
         .rec-grand-total {
@@ -253,18 +259,20 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
           font-size: 12px;
           font-weight: 900;
           margin: 3px 0;
+          color: #000000;
         }
 
         /* Barcode Area */
         .rec-barcode-area {
           text-align: center;
           margin: 6px 0 4px 0;
+          color: #000000;
         }
 
         .rec-notes {
           text-align: center;
           font-size: 8.5px;
-          color: #333333;
+          color: #000000;
           margin: 4px 0;
         }
 
@@ -330,7 +338,7 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
             <span class="num-ltr font-mono">${formatNumber(subtotal)} ${cur}</span>
           </div>
           ${discount > 0 ? `
-          <div class="rec-total-row" style="color: #dc2626;">
+          <div class="rec-total-row">
             <span>الخصم:</span>
             <span class="num-ltr font-mono">-${formatNumber(discount)} ${cur}</span>
           </div>` : ''}
@@ -340,12 +348,12 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
           </div>
           <div class="rec-total-row">
             <span>المدفوع:</span>
-            <span class="num-ltr font-mono bold" style="color: #16a34a;">${formatNumber(paid)} ${cur}</span>
+            <span class="num-ltr font-mono bold">${formatNumber(paid)} ${cur}</span>
           </div>
           ${remaining > 0 ? `
           <div class="rec-total-row">
             <span>المتبقي:</span>
-            <span class="num-ltr font-mono bold" style="color: #dc2626;">${formatNumber(remaining)} ${cur}</span>
+            <span class="num-ltr font-mono bold">${formatNumber(remaining)} ${cur}</span>
           </div>` : ''}
           <div class="rec-total-row">
             <span>عدد المواد:</span>

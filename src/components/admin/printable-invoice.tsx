@@ -209,19 +209,19 @@ export function PrintableInvoice({
             <span className="font-mono font-bold whitespace-nowrap" dir="ltr">{paidAmount.toLocaleString()} {currencySymbol}</span>
           </div>
           {remaining > 0 && (
-            <div className="flex justify-between items-center gap-1.5 text-red-700 font-black">
+            <div className="flex justify-between items-center gap-1.5 text-black font-black">
               <span className="shrink-0">المتبقي (ذمة):</span>
               <span className="font-mono whitespace-nowrap" dir="ltr">{remaining.toLocaleString()} {currencySymbol}</span>
             </div>
           )}
           {previousBalance > 0 && (
-            <div className="flex justify-between items-center gap-1.5 text-[10px] text-slate-800 border-t border-dotted border-slate-400 pt-0.5">
+            <div className="flex justify-between items-center gap-1.5 text-[10px] text-black border-t border-dotted border-black pt-0.5">
               <span className="shrink-0">الرصيد السابق:</span>
               <span className="font-mono whitespace-nowrap" dir="ltr">{previousBalance.toLocaleString()} {currencySymbol}</span>
             </div>
           )}
           {currentBalance > 0 && (
-            <div className="flex justify-between items-center gap-1.5 font-black text-[10.5px]">
+            <div className="flex justify-between items-center gap-1.5 font-black text-[10.5px] text-black">
               <span className="shrink-0">الرصيد الكلي:</span>
               <span className="font-mono whitespace-nowrap" dir="ltr">{currentBalance.toLocaleString()} {currencySymbol}</span>
             </div>
@@ -230,9 +230,9 @@ export function PrintableInvoice({
 
         {/* Mandatory DUBSAR Footer */}
         <div className="mt-2 pt-1.5 border-t border-dashed border-black text-center space-y-0.5">
-          <p className="text-[9px] text-slate-800 font-medium break-words leading-tight">{activeSettings?.footerText || 'شكراً لتعاملكم معنا • البضاعة المباعة لا ترد ولا تستبدل إلا بموجب هذه الفاتورة'}</p>
-          <div className="pt-1 border-t border-dotted border-slate-400 mt-1">
-            <p className="text-[8px] font-bold text-slate-600">نظام DUBSAR 2.0 لإدارة الأعمال والمخازن • وثيقة رسمية</p>
+          <p className="text-[9px] text-black font-medium break-words leading-tight">{activeSettings?.footerText || 'شكراً لتعاملكم معنا • البضاعة المباعة لا ترد ولا تستبدل إلا بموجب هذه الفاتورة'}</p>
+          <div className="pt-1 border-t border-dotted border-black mt-1">
+            <p className="text-[8px] font-bold text-black">نظام DUBSAR لإدارة الأعمال والمخازن • وثيقة رسمية</p>
           </div>
         </div>
       </div>
@@ -250,7 +250,7 @@ export function PrintableInvoice({
       dir="rtl"
     >
       {/* Top Header: Branding & Invoice Metadata */}
-      <div className="flex justify-between items-start pb-6 border-b-2 border-primary/80">
+      <div className="flex justify-between items-start pb-6 border-b-2 border-black">
         <div className="space-y-1.5">
           <div className="flex items-center gap-3">
             {activeSettings?.logo && (
@@ -262,106 +262,106 @@ export function PrintableInvoice({
               />
             )}
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-primary">
+              <h1 className="text-2xl font-black tracking-tight text-black">
                 {activeSettings?.businessName || 'مؤسسة دوبسار التجارية'}
               </h1>
               {activeSettings?.ownerName && (
-                <p className="text-xs font-bold text-slate-600">بإدارة: {activeSettings.ownerName}</p>
+                <p className="text-xs font-bold text-black">بإدارة: {activeSettings.ownerName}</p>
               )}
             </div>
           </div>
           {activeSettings?.address && (
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-black">
               {activeSettings.address} {activeSettings.province ? `• ${activeSettings.province}` : ''}
             </p>
           )}
           {(activeSettings?.phone1 || activeSettings?.phone2) && (
-            <p className="text-xs font-mono font-bold text-slate-700 dir-ltr text-right">
+            <p className="text-xs font-mono font-bold text-black dir-ltr text-right">
               الهاتف: {activeSettings?.phone1} {activeSettings?.phone2 ? `| ${activeSettings.phone2}` : ''}
             </p>
           )}
         </div>
 
-        <div className="text-left font-mono text-xs text-slate-400">
-          <div className="font-black text-slate-600">DUBSAR 2.0</div>
-          <div className="text-[10px]">نظام إدارة المبيعات والمخزون</div>
+        <div className="text-left font-mono text-xs text-black">
+          <div className="font-black text-black">DUBSAR</div>
+          <div className="text-[10px] text-black">نظام إدارة المبيعات والمخزون</div>
         </div>
       </div>
 
       {/* Reference Invoice Information Bar */}
-      <div className="relative my-4 border border-slate-300 rounded-xl bg-white p-3 pt-3.5">
+      <div className="relative my-4 border-2 border-black rounded-lg bg-white p-3 pt-3.5">
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="bg-[#0b1329] text-white text-[11px] font-black px-6 py-0.5 rounded-full shadow-sm">
+          <span className="bg-black text-white text-[11px] font-black px-6 py-0.5 rounded-full shadow-sm">
             فاتورة مبيعات
           </span>
         </div>
-        <div className="grid grid-cols-4 gap-2 text-[11px] pt-1">
+        <div className="grid grid-cols-4 gap-2 text-[11px] pt-1 text-black">
           {/* Row 1 */}
           <div className="flex items-center gap-1.5 overflow-hidden">
-            <span className="text-slate-500 font-bold shrink-0">رقم الفاتورة:</span>
-            <span className="font-mono font-black text-slate-900">{invoiceNo}</span>
+            <span className="text-black font-bold shrink-0">رقم الفاتورة:</span>
+            <span className="font-mono font-black text-black">{invoiceNo}</span>
           </div>
           <div className="flex items-center gap-1.5 overflow-hidden">
-            <span className="text-slate-500 font-bold shrink-0">التاريخ:</span>
-            <span className="font-mono font-bold text-slate-800">{date}</span>
+            <span className="text-black font-bold shrink-0">التاريخ:</span>
+            <span className="font-mono font-bold text-black">{date}</span>
           </div>
           <div className="flex items-center gap-1.5 overflow-hidden">
-            <span className="text-slate-500 font-bold shrink-0">الوقت:</span>
-            <span className="font-mono font-bold text-slate-800">{formattedTime}</span>
+            <span className="text-black font-bold shrink-0">الوقت:</span>
+            <span className="font-mono font-bold text-black">{formattedTime}</span>
           </div>
           <div className="flex items-center gap-1.5 overflow-hidden">
-            <span className="text-slate-500 font-bold shrink-0">نوع البيع:</span>
-            <span className="font-bold text-slate-900">{remaining > 0 ? (paidAmount > 0 ? 'نقدي + آجل' : 'آجل') : 'نقدي'}</span>
+            <span className="text-black font-bold shrink-0">نوع البيع:</span>
+            <span className="font-bold text-black">{remaining > 0 ? (paidAmount > 0 ? 'نقدي + آجل' : 'آجل') : 'نقدي'}</span>
           </div>
 
           {/* Row 2 */}
           <div className="flex items-center gap-1.5 overflow-hidden">
-            <span className="text-slate-500 font-bold shrink-0">اسم الزبون:</span>
-            <span className="font-black text-slate-900 truncate">{customer?.name || 'زبون نقدي'}</span>
+            <span className="text-black font-bold shrink-0">اسم الزبون:</span>
+            <span className="font-black text-black truncate">{customer?.name || 'زبون نقدي'}</span>
           </div>
           <div className="flex items-center gap-1.5 overflow-hidden">
-            <span className="text-slate-500 font-bold shrink-0">هاتف الزبون:</span>
-            <span className="font-mono text-slate-800">{customer?.phone || '---'}</span>
+            <span className="text-black font-bold shrink-0">هاتف الزبون:</span>
+            <span className="font-mono text-black">{customer?.phone || '---'}</span>
           </div>
           <div className="flex items-center gap-1.5 overflow-hidden">
-            <span className="text-slate-500 font-bold shrink-0">العنوان:</span>
-            <span className="text-slate-800 truncate">{customer?.address || '---'}</span>
+            <span className="text-black font-bold shrink-0">العنوان:</span>
+            <span className="text-black truncate">{customer?.address || '---'}</span>
           </div>
           <div className="flex items-center gap-1.5 overflow-hidden">
-            <span className="text-slate-500 font-bold shrink-0">المستودع:</span>
-            <span className="text-slate-800 font-bold truncate">المستودع الرئيسي</span>
+            <span className="text-black font-bold shrink-0">المستودع:</span>
+            <span className="text-black font-bold truncate">المستودع الرئيسي</span>
           </div>
         </div>
       </div>
 
       {/* Items Table */}
-      <div className="border border-slate-300 rounded-lg overflow-hidden my-4">
+      <div className="border-2 border-black rounded-lg overflow-hidden my-4">
         <table className="w-full text-right border-collapse text-xs">
-          <thead className="bg-slate-100 text-slate-700 font-black border-b border-slate-300">
+          <thead className="bg-black text-white font-black border-b-2 border-black">
             <tr>
-              <th className="p-2.5 w-12 text-center border-l border-slate-300">#</th>
-              <th className="p-2.5 w-32 border-l border-slate-300">الباركود</th>
-              <th className="p-2.5 border-l border-slate-300">اسم المادة والمواصفات</th>
-              <th className="p-2.5 w-20 text-center border-l border-slate-300">الوحدة</th>
-              <th className="p-2.5 w-20 text-center border-l border-slate-300">الكمية</th>
-              <th className="p-2.5 w-28 text-center border-l border-slate-300">السعر المفرد</th>
-              <th className="p-2.5 w-32 text-center border-l border-slate-300">الإجمالي</th>
-              <th className="p-2.5 w-40">ملاحظات / سيريال</th>
+              <th className="p-2.5 w-12 text-center border-l border-white/30 text-white">#</th>
+              <th className="p-2.5 w-32 border-l border-white/30 text-white">الباركود</th>
+              <th className="p-2.5 border-l border-white/30 text-white">اسم المادة والمواصفات</th>
+              <th className="p-2.5 w-20 text-center border-l border-white/30 text-white">الوحدة</th>
+              <th className="p-2.5 w-20 text-center border-l border-white/30 text-white">الكمية</th>
+              <th className="p-2.5 w-28 text-center border-l border-white/30 text-white">السعر المفرد</th>
+              <th className="p-2.5 w-32 text-center border-l border-white/30 text-white">الإجمالي</th>
+              <th className="p-2.5 w-40 text-white">ملاحظات / سيريال</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody className="divide-y divide-black text-black">
             {items.map((item, idx) => (
-              <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
-                <td className="p-2 text-center font-bold text-slate-500 border-l border-slate-200">{idx + 1}</td>
-                <td className="p-2 font-mono text-[11px] text-slate-600 border-l border-slate-200">{item.barcode || '-'}</td>
-                <td className="p-2 font-black text-slate-900 border-l border-slate-200">{item.name}</td>
-                <td className="p-2 text-center text-slate-600 border-l border-slate-200">{item.unit || 'قطعة'}</td>
-                <td className="p-2 text-center font-black font-mono border-l border-slate-200">{item.quantity}</td>
-                <td className="p-2 text-center font-mono font-bold border-l border-slate-200">{Number(item.price).toLocaleString()}</td>
-                <td className="p-2 text-center font-mono font-black text-primary border-l border-slate-200">
+              <tr key={idx} className="bg-white">
+                <td className="p-2 text-center font-bold text-black border-l border-black">{idx + 1}</td>
+                <td className="p-2 font-mono text-[11px] text-black border-l border-black">{item.barcode || '-'}</td>
+                <td className="p-2 font-black text-black border-l border-black">{item.name}</td>
+                <td className="p-2 text-center text-black border-l border-black">{item.unit || 'قطعة'}</td>
+                <td className="p-2 text-center font-black font-mono text-black border-l border-black">{item.quantity}</td>
+                <td className="p-2 text-center font-mono font-bold text-black border-l border-black">{Number(item.price).toLocaleString()}</td>
+                <td className="p-2 text-center font-mono font-black text-black border-l border-black">
                   {(item.quantity * item.price).toLocaleString()}
                 </td>
-                <td className="p-2 text-[10px] text-slate-600">
+                <td className="p-2 text-[10px] text-black">
                   {item.serialNo ? `S/N: ${item.serialNo}` : ''} {item.notes || ''}
                 </td>
               </tr>
@@ -374,60 +374,60 @@ export function PrintableInvoice({
       <div className="grid grid-cols-2 gap-8 my-6 items-start">
         {/* Notes and Signatures */}
         <div className="space-y-4">
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-            <span className="font-black block mb-1 text-slate-700">ملاحظات وشروط الفاتورة:</span>
-            <p className="text-[11px] text-slate-600 leading-relaxed">
+          <div className="p-3 bg-white rounded-lg border-2 border-black text-xs text-black">
+            <span className="font-black block mb-1 text-black">ملاحظات وشروط الفاتورة:</span>
+            <p className="text-[11px] text-black leading-relaxed">
               {activeSettings?.footerText || '1. البضاعة المباعة خاضعة للفحص والاستلام في موقع المنشأة.\n2. لا تقبل المرتجعات إلا بوجود أصل هذه الفاتورة وبحالتها الأصلية.'}
             </p>
           </div>
 
-          <div className="pt-6 grid grid-cols-2 gap-4 text-center text-xs">
+          <div className="pt-6 grid grid-cols-2 gap-4 text-center text-xs text-black">
             <div className="space-y-8">
-              <span className="font-bold text-slate-600">توقيع المستلم:</span>
-              <div className="border-b border-dashed border-slate-400 w-36 mx-auto"></div>
+              <span className="font-bold text-black">توقيع المستلم:</span>
+              <div className="border-b border-dashed border-black w-36 mx-auto"></div>
             </div>
             <div className="space-y-8">
-              <span className="font-bold text-slate-600">توقيع وخاتم المنشأة:</span>
-              <div className="border-b border-dashed border-slate-400 w-36 mx-auto"></div>
+              <span className="font-bold text-black">توقيع وخاتم المنشأة:</span>
+              <div className="border-b border-dashed border-black w-36 mx-auto"></div>
             </div>
           </div>
         </div>
 
         {/* Totals Table */}
-        <div className="border border-slate-300 rounded-xl overflow-hidden bg-slate-50/40">
-          <table className="w-full text-xs">
-            <tbody className="divide-y divide-slate-200 font-bold">
+        <div className="border-2 border-black rounded-lg overflow-hidden bg-white">
+          <table className="w-full text-xs text-black">
+            <tbody className="divide-y divide-black font-bold">
               <tr>
-                <td className="p-2 text-slate-600">مجموع القائمة:</td>
-                <td className="p-2 text-left font-mono font-black">{subtotal.toLocaleString()} {currencySymbol}</td>
+                <td className="p-2 text-black">مجموع القائمة:</td>
+                <td className="p-2 text-left font-mono font-black text-black">{subtotal.toLocaleString()} {currencySymbol}</td>
               </tr>
               {discountAmount > 0 && (
-                <tr className="text-emerald-700">
+                <tr className="text-black">
                   <td className="p-2">الخصم الممنوح:</td>
-                  <td className="p-2 text-left font-mono font-black">-{discountAmount.toLocaleString()} {currencySymbol}</td>
+                  <td className="p-2 text-left font-mono font-black text-black">-{discountAmount.toLocaleString()} {currencySymbol}</td>
                 </tr>
               )}
-              <tr className="bg-primary/10 text-primary text-sm font-black">
-                <td className="p-2.5">المجموع الصافي المطلوب:</td>
-                <td className="p-2.5 text-left font-mono font-black text-base">{netTotal.toLocaleString()} {currencySymbol}</td>
+              <tr className="bg-black text-white text-sm font-black">
+                <td className="p-2.5 text-white">المجموع الصافي المطلوب:</td>
+                <td className="p-2.5 text-left font-mono font-black text-base text-white">{netTotal.toLocaleString()} {currencySymbol}</td>
               </tr>
               <tr>
-                <td className="p-2 text-emerald-800">المبلغ الواصل (المدفوع):</td>
-                <td className="p-2 text-left font-mono font-black text-emerald-800">{paidAmount.toLocaleString()} {currencySymbol}</td>
+                <td className="p-2 text-black">المبلغ الواصل (المدفوع):</td>
+                <td className="p-2 text-left font-mono font-black text-black">{paidAmount.toLocaleString()} {currencySymbol}</td>
               </tr>
               <tr>
-                <td className="p-2 text-red-600">المبلغ المتبقي (الذمة):</td>
-                <td className="p-2 text-left font-mono font-black text-red-600">{remaining.toLocaleString()} {currencySymbol}</td>
+                <td className="p-2 text-black">المبلغ المتبقي (الذمة):</td>
+                <td className="p-2 text-left font-mono font-black text-black">{remaining.toLocaleString()} {currencySymbol}</td>
               </tr>
               {previousBalance > 0 && (
-                <tr className="text-slate-600 border-t-2 border-slate-300">
+                <tr className="text-black border-t-2 border-black">
                   <td className="p-2">الرصيد السابق للعميل:</td>
-                  <td className="p-2 text-left font-mono">{previousBalance.toLocaleString()} {currencySymbol}</td>
+                  <td className="p-2 text-left font-mono text-black">{previousBalance.toLocaleString()} {currencySymbol}</td>
                 </tr>
               )}
-              <tr className="bg-slate-200/70 text-slate-900 font-black">
-                <td className="p-2.5">الرصيد الكلي الحالي للعميل:</td>
-                <td className="p-2.5 text-left font-mono text-sm">{currentBalance.toLocaleString()} {currencySymbol}</td>
+              <tr className="bg-black/5 text-black font-black border-t border-black">
+                <td className="p-2.5 text-black">الرصيد الكلي الحالي للعميل:</td>
+                <td className="p-2.5 text-left font-mono text-sm text-black">{currentBalance.toLocaleString()} {currencySymbol}</td>
               </tr>
             </tbody>
           </table>
@@ -435,10 +435,10 @@ export function PrintableInvoice({
       </div>
 
       {/* Corporate Page Footer */}
-      <div className="pt-3 border-t border-slate-300 flex items-center justify-between text-xs font-bold text-slate-700">
+      <div className="pt-3 border-t-2 border-black flex items-center justify-between text-xs font-bold text-black">
         <span className="font-black">نظام DUBSAR لإدارة المبيعات</span>
         <span className="font-mono">هاتف الدعم الفني: 07858833838</span>
-        <span className="text-[11px] text-slate-500 font-mono">{date} {formattedTime}</span>
+        <span className="text-[11px] text-black font-mono">{date} {formattedTime}</span>
       </div>
     </div>
   );

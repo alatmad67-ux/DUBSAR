@@ -140,7 +140,9 @@ export function AdminHeader() {
       <div className="flex items-center gap-3">
         <SidebarTrigger className="h-8 w-8 text-foreground" />
         <div className="flex items-center gap-2">
-          <span className="font-black text-sm tracking-wider text-primary">DUBSAR 2.0</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/app-icon.png" alt="DUBSAR" className="h-6 w-6 rounded-md object-contain shadow-sm" />
+          <span className="font-black text-sm tracking-wider text-primary">DUBSAR</span>
           <span className="text-[10px] text-muted-foreground font-semibold px-2 py-0.5 rounded bg-muted/60">نظام المبيعات</span>
         </div>
       </div>
