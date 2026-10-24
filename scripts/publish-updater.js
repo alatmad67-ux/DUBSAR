@@ -63,7 +63,13 @@ if (!fs.existsSync(exePath) || !fs.existsSync(sigPath)) {
   console.log('⚠️ لم يتم العثور على ملفات التثبيت المبنية لهذا الإصدار.');
   console.log('جاري تشغيل بناء النسخة الموقعة desktop:build الآن...');
   try {
-    execSync('npm.cmd run desktop:build', { stdio: 'inherit', cwd: ROOT_DIR });
+    const keyFile = path.join(TAURI_DIR, 'dubsar_updater.key');
+    const buildEnv = { ...process.env };
+    if (!buildEnv.TAURI_SIGNING_PRIVATE_KEY && fs.existsSync(keyFile)) {
+      buildEnv.TAURI_SIGNING_PRIVATE_KEY = fs.readFileSync(keyFile, 'utf8').trim();
+      buildEnv.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = '';
+    }
+    execSync('npm.cmd run desktop:build', { stdio: 'inherit', cwd: ROOT_DIR, env: buildEnv });
     if (!fs.existsSync(exePath) && fs.existsSync(path.join(nsisDir, `DUBSAR_${version}_x64-setup.exe`))) {
       exeName = `DUBSAR_${version}_x64-setup.exe`;
       exePath = path.join(nsisDir, exeName);
@@ -90,7 +96,7 @@ const remoteExeName = exeName;
 
 const latestJsonContent = {
   version: version,
-  notes: `DUBSAR ${version} - التحديث الرسمي: توحيد ألوان الطباعة باللون الأسود لكافة الفواتير والمستندات، وإضافة أيقونة النظام الرسمية، واعتماد اسم DUBSAR، وتحسينات وإصلاحات شاملة للمبيعات والمخزون.`,
+  notes: `DUBSAR ${version} - التحديث الرسمي الشامل: تحسينات شاشة المبيعات والاقتراح التلقائي للزبائن والمواد، دعم مقاسات الطباعة (58mm / 80mm / A4)، طرق الدفع المتعددة والدفع المختلط، مشاركة الفواتير عبر WhatsApp، وإصلاح حساب الأرباح.`,
   pub_date: new Date().toISOString(),
   platforms: {
     'windows-x86_64': {

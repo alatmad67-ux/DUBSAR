@@ -39,7 +39,7 @@ export interface InvoiceDetailProps {
 
 export function InvoiceDetailDialog({ isOpen, onClose, invoice }: InvoiceDetailProps) {
   const router = useRouter();
-  const [printingFormat, setPrintingFormat] = useState<'80mm' | 'A4' | null>(null);
+  const [printingFormat, setPrintingFormat] = useState<'58mm' | '80mm' | 'A4' | null>(null);
 
   if (!invoice) return null;
 
@@ -67,7 +67,7 @@ export function InvoiceDetailDialog({ isOpen, onClose, invoice }: InvoiceDetailP
   const remaining = Number(invoice.remaining ?? (totalAmount - paidAmount));
   const paymentMethod = invoice.paymentMethod === 'credit' ? 'آجل' : 'نقدي';
 
-  const handlePrint = async (format: '80mm' | 'A4') => {
+  const handlePrint = async (format: '58mm' | '80mm' | 'A4') => {
     setPrintingFormat(format);
     try {
       const appSettings = await LocalAuthService.getUnifiedSettings();
@@ -90,8 +90,8 @@ export function InvoiceDetailDialog({ isOpen, onClose, invoice }: InvoiceDetailP
         businessSettings: appSettings
       };
 
-      if (format === '80mm') {
-        await PrintEngine.printThermalReceipt(printData);
+      if (format === '80mm' || format === '58mm') {
+        await PrintEngine.printThermalReceipt(printData, format);
       } else {
         await PrintEngine.printA4Invoice(printData);
       }
@@ -224,12 +224,23 @@ export function InvoiceDetailDialog({ isOpen, onClose, invoice }: InvoiceDetailP
               type="button"
               variant="outline"
               size="sm"
+              onClick={() => handlePrint('58mm')}
+              disabled={printingFormat !== null}
+              className="gap-1.5 font-bold h-10 rounded-xl"
+            >
+              {printingFormat === '58mm' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4 text-primary" />}
+              <span>58mm</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={() => handlePrint('80mm')}
               disabled={printingFormat !== null}
               className="gap-1.5 font-bold h-10 rounded-xl"
             >
               {printingFormat === '80mm' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4 text-primary" />}
-              <span>طباعة كاشير (80mm)</span>
+              <span>80mm</span>
             </Button>
             <Button
               type="button"
@@ -240,7 +251,7 @@ export function InvoiceDetailDialog({ isOpen, onClose, invoice }: InvoiceDetailP
               className="gap-1.5 font-bold h-10 rounded-xl"
             >
               {printingFormat === 'A4' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4 text-primary" />}
-              <span>طباعة A4 رسمية</span>
+              <span>A4</span>
             </Button>
             <Button
               type="button"

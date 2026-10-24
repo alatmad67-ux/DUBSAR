@@ -10,6 +10,7 @@ import { SHARED_PRINT_RESET } from '../../common/shared-styles';
 import { formatNumber, formatDisplayInvoiceNumber, generateCode128Svg, toAsciiDigits } from '../../common/number-formatter';
 
 export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: DocumentRenderData): string {
+  const is58mm = template.format === '58mm';
   const opts = data.printOptions || {};
   const business = data.business || {};
   const doc = data.document || {};
@@ -27,11 +28,18 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
   const remaining = Number(totals.remaining ?? Math.max(0, netTotal - paid));
   const itemCount = totals.itemCount ?? items.length;
 
+  const rawMethod = doc.paymentMethod || (doc as any).payment_method || (remaining > 0.01 ? 'credit' : 'cash');
+  let paymentMethodName = 'نقدي';
+  if (rawMethod === 'card' || rawMethod === 'mastercard') paymentMethodName = 'Mastercard / بطاقة';
+  else if (rawMethod === 'transfer') paymentMethodName = 'تحويل';
+  else if (rawMethod === 'credit') paymentMethodName = 'آجل';
+  else if (rawMethod === 'split') paymentMethodName = 'دفع مختلط';
+
   const phone = business.phone1 || business.phone2 || '';
   const dateStr = toAsciiDigits(doc.date || new Date().toISOString().split('T')[0]);
   const timeStr = toAsciiDigits(doc.time || '');
 
-  const barcodeSvg = generateCode128Svg(invoiceNo, 28);
+  const barcodeSvg = generateCode128Svg(invoiceNo, is58mm ? 24 : 30);
   const docNotes = doc.notes || business.footerNotice || 'البضاعة المباعة لا ترد ولا تستبدل إلا بموجب الفاتورة.';
 
   // Dynamic 80mm column definitions
@@ -120,7 +128,7 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
         ${SHARED_PRINT_RESET}
 
         @page {
-          size: 80mm auto;
+          size: ${is58mm ? '58mm auto' : '80mm auto'};
           margin: 0 !important;
         }
 
@@ -129,15 +137,15 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
           padding: 0 !important;
           background: #ffffff;
           color: #000000;
-          font-size: 10px;
+          font-size: ${is58mm ? '9px' : '11px'};
           line-height: 1.35;
         }
 
         .receipt-container {
-          width: 72mm;
-          max-width: 72mm;
+          width: ${is58mm ? '50mm' : '72mm'};
+          max-width: ${is58mm ? '50mm' : '72mm'};
           margin: 0 auto;
-          padding: 2mm 1mm;
+          padding: ${is58mm ? '2mm 1mm' : '3mm 2mm'};
           overflow-x: hidden;
         }
 
@@ -156,14 +164,14 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
         }
 
         .rec-biz-name {
-          font-size: 15px;
+          font-size: ${is58mm ? '13px' : '16px'};
           font-weight: 900;
           color: #000000;
           margin-bottom: 2px;
         }
 
         .rec-biz-info {
-          font-size: 9px;
+          font-size: ${is58mm ? '8.5px' : '10px'};
           color: #000000;
           margin-bottom: 2px;
         }
@@ -171,8 +179,8 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
         .rec-title-box {
           background: #000000;
           color: #ffffff !important;
-          padding: 3px;
-          font-size: 11px;
+          padding: 3px 6px;
+          font-size: ${is58mm ? '10px' : '12px'};
           font-weight: 900;
           text-align: center;
           margin: 5px 0;
@@ -186,7 +194,7 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
         }
 
         .rec-divider-solid {
-          border-top: 1px solid #000000;
+          border-top: 1.5px solid #000000;
           margin: 4px 0;
         }
 
@@ -194,7 +202,7 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
         .rec-meta-row {
           display: flex;
           justify-content: space-between;
-          font-size: 9.5px;
+          font-size: ${is58mm ? '9px' : '10.5px'};
           margin-bottom: 2px;
           color: #000000;
         }
@@ -209,10 +217,10 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
         }
 
         .rec-table th {
-          border-top: 1px solid #000000;
-          border-bottom: 1px solid #000000;
+          border-top: 1.5px solid #000000;
+          border-bottom: 1.5px solid #000000;
           padding: 3px 1px;
-          font-size: 9.5px;
+          font-size: ${is58mm ? '8.5px' : '11px'};
           font-weight: 900;
           text-align: center;
           color: #000000;
@@ -220,7 +228,7 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
 
         .rec-table td {
           padding: 3px 1px;
-          font-size: 9px;
+          font-size: ${is58mm ? '8.5px' : '10.5px'};
           vertical-align: top;
           border-bottom: 1px dashed #000000;
           color: #000000;
@@ -240,26 +248,35 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
 
         /* Totals Box */
         .rec-totals-box {
-          margin: 4px 0;
-          font-size: 9.5px;
+          margin: 6px 0;
+          padding: 4px;
+          border: 1.5px solid #000000;
+          border-radius: 4px;
+          font-size: ${is58mm ? '9px' : '11px'};
           color: #000000;
         }
 
         .rec-total-row {
           display: flex;
           justify-content: space-between;
-          padding: 2px 0;
+          padding: 2.5px 0;
           color: #000000;
         }
 
         .rec-grand-total {
-          border-top: 1px solid #000000;
-          border-bottom: 1px solid #000000;
-          padding: 4px 0;
-          font-size: 12px;
+          border-top: 1.5px solid #000000;
+          border-bottom: 1.5px solid #000000;
+          padding: 5px 2px;
+          font-size: ${is58mm ? '11px' : '13.5px'};
           font-weight: 900;
           margin: 3px 0;
           color: #000000;
+        }
+
+        .rec-remaining-row {
+          font-weight: 900;
+          border-top: 1px dashed #000000;
+          padding-top: 3px;
         }
 
         /* Barcode Area */
@@ -271,18 +288,30 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
 
         .rec-notes {
           text-align: center;
-          font-size: 8.5px;
+          font-size: ${is58mm ? '8px' : '9px'};
           color: #000000;
           margin: 4px 0;
+          line-height: 1.4;
         }
 
         .rec-sig {
           display: flex;
           justify-content: space-between;
-          font-size: 8.5px;
+          font-size: ${is58mm ? '8px' : '9.5px'};
           font-weight: 700;
           margin-top: 6px;
           padding: 0 4px;
+        }
+
+        .dubsar-minimal-footer {
+          margin-top: 8px;
+          padding-top: 5px;
+          border-top: 1.5px dashed #000000;
+          text-align: center;
+          font-size: ${is58mm ? '8.5px' : '10px'};
+          font-weight: 900;
+          color: #000000;
+          direction: rtl;
         }
       </style>
     </head>
@@ -307,10 +336,20 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
           <span>التاريخ والوقت:</span>
           <span class="num-ltr font-mono">${dateStr} ${timeStr}</span>
         </div>
-        <div class="rec-meta-row">
-          <span>الزبون:</span>
-          <span class="bold">${party.name || 'زبون نقدي'}</span>
+        <div class="rec-meta-row wrap-text">
+          <span style="flex-shrink: 0;">الزبون:</span>
+          <span class="bold wrap-text" style="text-align: left; max-width: 75%;">${party.name || 'زبون نقدي'}</span>
         </div>
+        ${party.phone ? `
+        <div class="rec-meta-row">
+          <span>الهاتف:</span>
+          <span class="num-ltr font-mono">${party.phone}</span>
+        </div>` : ''}
+        ${party.address ? `
+        <div class="rec-meta-row wrap-text">
+          <span style="flex-shrink: 0;">العنوان:</span>
+          <span class="wrap-text" style="text-align: left; max-width: 75%;">${party.address}</span>
+        </div>` : ''}
         ${doc.cashierName && opts.showCashierName !== false ? `
         <div class="rec-meta-row">
           <span>الكاشير:</span>
@@ -331,19 +370,19 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
           </tbody>
         </table>
 
-        <!-- Totals -->
+        <!-- Totals Box (Enhanced Financial Summary) -->
         <div class="rec-totals-box">
           <div class="rec-total-row">
             <span>إجمالي المواد:</span>
-            <span class="num-ltr font-mono">${formatNumber(subtotal)} ${cur}</span>
+            <span class="num-ltr font-mono bold">${formatNumber(subtotal)} ${cur}</span>
           </div>
           ${discount > 0 ? `
           <div class="rec-total-row">
-            <span>الخصم:</span>
-            <span class="num-ltr font-mono">-${formatNumber(discount)} ${cur}</span>
+            <span>الخصم الممنوح:</span>
+            <span class="num-ltr font-mono bold">-${formatNumber(discount)} ${cur}</span>
           </div>` : ''}
           <div class="rec-total-row rec-grand-total">
-            <span>الصافي:</span>
+            <span>الإجمالي النهائي:</span>
             <span class="num-ltr font-mono">${formatNumber(netTotal)} ${cur}</span>
           </div>
           <div class="rec-total-row">
@@ -351,11 +390,15 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
             <span class="num-ltr font-mono bold">${formatNumber(paid)} ${cur}</span>
           </div>
           ${remaining > 0 ? `
-          <div class="rec-total-row">
-            <span>المتبقي:</span>
+          <div class="rec-total-row rec-remaining-row">
+            <span>المتبقي في الذمة:</span>
             <span class="num-ltr font-mono bold">${formatNumber(remaining)} ${cur}</span>
           </div>` : ''}
           <div class="rec-total-row">
+            <span>طريقة الدفع:</span>
+            <span class="bold">${paymentMethodName}</span>
+          </div>
+          <div class="rec-total-row" style="font-size: ${is58mm ? '8px' : '9.5px'}; opacity: 0.85; border-top: 1px dotted #000000; margin-top: 2px; padding-top: 2px;">
             <span>عدد المواد:</span>
             <span class="num-ltr font-mono">${itemCount}</span>
           </div>
@@ -379,10 +422,9 @@ export function renderThermalInvoiceTemplate(template: DocumentTemplate, data: D
           <span>توقيع المستلم</span>
         </div>` : ''}
 
-        <!-- Minimal Unobtrusive Brand Footer -->
+        <!-- Fixed DUBSAR System Footer -->
         <div class="dubsar-minimal-footer">
-          <span>اسم النظام: DUBSAR</span>
-          ${phone ? `<span class="dubsar-footer-dot">•</span><span>رقم الهاتف: <span class="num-ltr">${phone}</span></span>` : ''}
+          نظام دوبسار لإدارة المبيعات | 07858833838
         </div>
       </div>
     </body>

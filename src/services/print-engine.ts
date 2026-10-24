@@ -366,17 +366,17 @@ export class PrintEngine {
    * Universal Document Printer using DocumentRenderer and TemplateService.
    * Single source of truth across all 13 documents.
    */
-  static async printDocument(documentType: DocumentType, data: any, format: '80mm' | 'A4' = '80mm'): Promise<void> {
+  static async printDocument(documentType: DocumentType, data: any, format: '80mm' | 'A4' | '58mm' = '80mm'): Promise<void> {
     const template = TemplateService.getTemplate(documentType, format);
     const html = DocumentRenderer.renderToHtml(template, data);
     await this.printIsolatedHtml(html);
   }
 
   /**
-   * Generates and prints a crystal-clear 80mm Thermal Receipt using the unified template engine.
+   * Generates and prints a crystal-clear 80mm or 58mm Thermal Receipt using the unified template engine.
    */
-  static async printThermalReceipt(data: InvoicePrintData): Promise<void> {
-    await this.printDocument('sales_invoice', data, '80mm');
+  static async printThermalReceipt(data: InvoicePrintData, format: '80mm' | '58mm' = '80mm'): Promise<void> {
+    await this.printDocument('sales_invoice', data, format);
   }
 
   /**
@@ -607,8 +607,8 @@ export class PrintEngine {
 
         <div class="text-center footer-note">
           <p>${settings.footerText || 'شكراً لتعاملكم معنا • البضاعة المباعة لا ترد ولا تستبدل بعد 3 أيام'}</p>
-          <div style="border-top: 1px dotted #888; padding-top: 4px; margin-top: 4px; font-weight: bold; font-size: 9px;">
-            نظام DUBSAR لإدارة المبيعات | هاتف: 07858833838
+          <div style="border-top: 1px dotted #000; padding-top: 4px; margin-top: 4px; font-weight: bold; font-size: 9px; color: #000;">
+            نظام دوبسار لإدارة المبيعات | 07858833838
           </div>
         </div>
       </body>
@@ -829,8 +829,8 @@ export class PrintEngine {
 
         <div class="footer-note">
           <p>${settings.footerText || 'شكراً لتعاملكم معنا • البضاعة المباعة لا ترد ولا تستبدل بعد 3 أيام'}</p>
-          <div style="margin-top: 6px; font-weight: bold; color: #0284c7;">
-            نظام DUBSAR لإدارة المبيعات والمخازن | هاتف الدعم الفني: 07858833838
+          <div style="margin-top: 6px; font-weight: bold; color: #000000;">
+            نظام دوبسار لإدارة المبيعات | 07858833838
           </div>
         </div>
       </body>

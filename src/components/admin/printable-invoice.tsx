@@ -46,7 +46,8 @@ export interface PrintableInvoiceProps {
   remaining: number;
   previousBalance?: number;
   currentBalance?: number;
-  format?: 'A4' | '80mm';
+  format?: 'A4' | '80mm' | '58mm';
+  paymentMethod?: string;
   className?: string;
 }
 
@@ -68,6 +69,7 @@ export function PrintableInvoice({
   previousBalance = 0,
   currentBalance = 0,
   format = '80mm',
+  paymentMethod,
   className
 }: PrintableInvoiceProps) {
   const [localSettings, setLocalSettings] = React.useState<any>(businessSettings || {});
@@ -95,12 +97,15 @@ export function PrintableInvoice({
   const formattedTime = time || new Date().toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
 
   // 1. 80mm THERMAL RECEIPT LAYOUT (71mm safe printable zone for all 80mm printer drivers)
-  if (format === '80mm') {
+  if (format === '80mm' || format === '58mm') {
+    const is58 = format === '58mm';
     return (
       <div
         className={cn(
-          'bg-white text-black px-2 py-1.5 text-[10.5px] font-sans leading-snug select-none',
-          'w-full max-w-[71mm] mx-auto border border-dashed border-slate-300 print:border-none print:m-0 print:px-[2mm] print:py-[1.5mm] print:max-w-[71mm] print:h-auto overflow-hidden',
+          'bg-white text-black px-2 py-1.5 text-[11px] font-sans leading-snug select-none',
+          is58
+            ? 'w-full max-w-[50mm] mx-auto border border-dashed border-slate-300 print:border-none print:m-0 print:px-[1.5mm] print:py-[1mm] print:max-w-[50mm] print:h-auto overflow-hidden'
+            : 'w-full max-w-[71mm] mx-auto border border-dashed border-slate-300 print:border-none print:m-0 print:px-[2mm] print:py-[1.5mm] print:max-w-[71mm] print:h-auto overflow-hidden',
           className
         )}
         dir="rtl"
@@ -189,41 +194,53 @@ export function PrintableInvoice({
         </table>
 
         {/* Totals */}
-        <div className="pt-1.5 border-t-[1.5px] border-black space-y-0.5 text-[10.5px]">
+        <div className="pt-1.5 border-t-[1.5px] border-black space-y-0.5 text-[11px]">
           <div className="flex justify-between items-center gap-1.5">
-            <span className="font-bold shrink-0">المجموع:</span>
-            <span className="font-mono whitespace-nowrap" dir="ltr">{subtotal.toLocaleString()} {currencySymbol}</span>
+            <span className="font-bold shrink-0">إجمالي المواد (عدد الفقرات):</span>
+            <span className="font-mono font-black whitespace-nowrap" dir="ltr">{items.length}</span>
+          </div>
+          <div className="flex justify-between items-center gap-1.5">
+            <span className="font-bold shrink-0">مجموع القائمة:</span>
+            <span className="font-mono whitespace-nowrap" dir="ltr">{subtotal.toLocaleString('en-US')} {currencySymbol}</span>
           </div>
           {discountAmount > 0 && (
-            <div className="flex justify-between items-center gap-1.5 text-red-700">
+            <div className="flex justify-between items-center gap-1.5 text-black">
               <span className="font-bold shrink-0">الخصم:</span>
-              <span className="font-mono whitespace-nowrap" dir="ltr">-{discountAmount.toLocaleString()} {currencySymbol}</span>
+              <span className="font-mono whitespace-nowrap" dir="ltr">-{discountAmount.toLocaleString('en-US')} {currencySymbol}</span>
             </div>
           )}
           <div className="flex justify-between items-center gap-1.5 text-xs font-black border-y-[1.5px] border-black py-1 my-0.5">
             <span className="shrink-0">الصافي المطلوب:</span>
-            <span className="font-mono whitespace-nowrap" dir="ltr">{netTotal.toLocaleString()} {currencySymbol}</span>
+            <span className="font-mono whitespace-nowrap" dir="ltr">{netTotal.toLocaleString('en-US')} {currencySymbol}</span>
           </div>
+          {paymentMethod && (
+            <div className="flex justify-between items-center gap-1.5 text-[10px]">
+              <span className="font-bold shrink-0">طريقة الدفع:</span>
+              <span className="font-black text-black">
+                {paymentMethod === 'cash' ? 'نقدي' : paymentMethod === 'card' ? 'Mastercard / بطاقة' : paymentMethod === 'transfer' ? 'تحويل' : paymentMethod === 'credit' ? 'آجل' : paymentMethod === 'split' ? 'دفع مختلط' : paymentMethod}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between items-center gap-1.5">
             <span className="font-bold shrink-0">المدفوع (الواصل):</span>
-            <span className="font-mono font-bold whitespace-nowrap" dir="ltr">{paidAmount.toLocaleString()} {currencySymbol}</span>
+            <span className="font-mono font-bold whitespace-nowrap" dir="ltr">{paidAmount.toLocaleString('en-US')} {currencySymbol}</span>
           </div>
           {remaining > 0 && (
             <div className="flex justify-between items-center gap-1.5 text-black font-black">
               <span className="shrink-0">المتبقي (ذمة):</span>
-              <span className="font-mono whitespace-nowrap" dir="ltr">{remaining.toLocaleString()} {currencySymbol}</span>
+              <span className="font-mono whitespace-nowrap" dir="ltr">{remaining.toLocaleString('en-US')} {currencySymbol}</span>
             </div>
           )}
           {previousBalance > 0 && (
             <div className="flex justify-between items-center gap-1.5 text-[10px] text-black border-t border-dotted border-black pt-0.5">
               <span className="shrink-0">الرصيد السابق:</span>
-              <span className="font-mono whitespace-nowrap" dir="ltr">{previousBalance.toLocaleString()} {currencySymbol}</span>
+              <span className="font-mono whitespace-nowrap" dir="ltr">{previousBalance.toLocaleString('en-US')} {currencySymbol}</span>
             </div>
           )}
           {currentBalance > 0 && (
             <div className="flex justify-between items-center gap-1.5 font-black text-[10.5px] text-black">
               <span className="shrink-0">الرصيد الكلي:</span>
-              <span className="font-mono whitespace-nowrap" dir="ltr">{currentBalance.toLocaleString()} {currencySymbol}</span>
+              <span className="font-mono whitespace-nowrap" dir="ltr">{currentBalance.toLocaleString('en-US')} {currencySymbol}</span>
             </div>
           )}
         </div>
@@ -232,7 +249,7 @@ export function PrintableInvoice({
         <div className="mt-2 pt-1.5 border-t border-dashed border-black text-center space-y-0.5">
           <p className="text-[9px] text-black font-medium break-words leading-tight">{activeSettings?.footerText || 'شكراً لتعاملكم معنا • البضاعة المباعة لا ترد ولا تستبدل إلا بموجب هذه الفاتورة'}</p>
           <div className="pt-1 border-t border-dotted border-black mt-1">
-            <p className="text-[8px] font-bold text-black">نظام DUBSAR لإدارة الأعمال والمخازن • وثيقة رسمية</p>
+            <p className="text-[9px] font-black text-black">نظام دوبسار لإدارة المبيعات | 07858833838</p>
           </div>
         </div>
       </div>
@@ -398,36 +415,48 @@ export function PrintableInvoice({
           <table className="w-full text-xs text-black">
             <tbody className="divide-y divide-black font-bold">
               <tr>
+                <td className="p-2 text-black">إجمالي المواد (عدد الفقرات):</td>
+                <td className="p-2 text-left font-mono font-black text-black">{items.length}</td>
+              </tr>
+              <tr>
                 <td className="p-2 text-black">مجموع القائمة:</td>
-                <td className="p-2 text-left font-mono font-black text-black">{subtotal.toLocaleString()} {currencySymbol}</td>
+                <td className="p-2 text-left font-mono font-black text-black">{subtotal.toLocaleString('en-US')} {currencySymbol}</td>
               </tr>
               {discountAmount > 0 && (
                 <tr className="text-black">
                   <td className="p-2">الخصم الممنوح:</td>
-                  <td className="p-2 text-left font-mono font-black text-black">-{discountAmount.toLocaleString()} {currencySymbol}</td>
+                  <td className="p-2 text-left font-mono font-black text-black">-{discountAmount.toLocaleString('en-US')} {currencySymbol}</td>
                 </tr>
               )}
               <tr className="bg-black text-white text-sm font-black">
                 <td className="p-2.5 text-white">المجموع الصافي المطلوب:</td>
-                <td className="p-2.5 text-left font-mono font-black text-base text-white">{netTotal.toLocaleString()} {currencySymbol}</td>
+                <td className="p-2.5 text-left font-mono font-black text-base text-white">{netTotal.toLocaleString('en-US')} {currencySymbol}</td>
               </tr>
+              {paymentMethod && (
+                <tr className="text-black font-bold text-xs bg-slate-50">
+                  <td className="p-2 text-black">طريقة الدفع:</td>
+                  <td className="p-2 text-left font-black text-black">
+                    {paymentMethod === 'cash' ? 'نقدي' : paymentMethod === 'card' ? 'Mastercard / بطاقة' : paymentMethod === 'transfer' ? 'تحويل' : paymentMethod === 'credit' ? 'آجل' : paymentMethod === 'split' ? 'دفع مختلط' : paymentMethod}
+                  </td>
+                </tr>
+              )}
               <tr>
                 <td className="p-2 text-black">المبلغ الواصل (المدفوع):</td>
-                <td className="p-2 text-left font-mono font-black text-black">{paidAmount.toLocaleString()} {currencySymbol}</td>
+                <td className="p-2 text-left font-mono font-black text-black">{paidAmount.toLocaleString('en-US')} {currencySymbol}</td>
               </tr>
               <tr>
                 <td className="p-2 text-black">المبلغ المتبقي (الذمة):</td>
-                <td className="p-2 text-left font-mono font-black text-black">{remaining.toLocaleString()} {currencySymbol}</td>
+                <td className="p-2 text-left font-mono font-black text-black">{remaining.toLocaleString('en-US')} {currencySymbol}</td>
               </tr>
               {previousBalance > 0 && (
                 <tr className="text-black border-t-2 border-black">
                   <td className="p-2">الرصيد السابق للعميل:</td>
-                  <td className="p-2 text-left font-mono text-black">{previousBalance.toLocaleString()} {currencySymbol}</td>
+                  <td className="p-2 text-left font-mono text-black">{previousBalance.toLocaleString('en-US')} {currencySymbol}</td>
                 </tr>
               )}
               <tr className="bg-black/5 text-black font-black border-t border-black">
                 <td className="p-2.5 text-black">الرصيد الكلي الحالي للعميل:</td>
-                <td className="p-2.5 text-left font-mono text-sm text-black">{currentBalance.toLocaleString()} {currencySymbol}</td>
+                <td className="p-2.5 text-left font-mono text-sm text-black">{currentBalance.toLocaleString('en-US')} {currencySymbol}</td>
               </tr>
             </tbody>
           </table>
@@ -436,8 +465,7 @@ export function PrintableInvoice({
 
       {/* Corporate Page Footer */}
       <div className="pt-3 border-t-2 border-black flex items-center justify-between text-xs font-bold text-black">
-        <span className="font-black">نظام DUBSAR لإدارة المبيعات</span>
-        <span className="font-mono">هاتف الدعم الفني: 07858833838</span>
+        <span className="font-black">نظام دوبسار لإدارة المبيعات | 07858833838</span>
         <span className="text-[11px] text-black font-mono">{date} {formattedTime}</span>
       </div>
     </div>

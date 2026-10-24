@@ -16,6 +16,7 @@ import {
   RotateCcw, 
   Save, 
   Search, 
+  Send,
   Trash2, 
   UserPlus, 
   Users,
@@ -40,6 +41,7 @@ import { PrintPreviewModal } from '@/components/admin/print-preview-modal';
 import { PrintableInvoice } from '@/components/admin/printable-invoice';
 import { PrintEngine } from '@/services/print-engine';
 import { LocalAuthService } from '@/services/local-auth-service';
+import { toAsciiDigits } from '@/core/print-templates/common/number-formatter';
 
 interface CartItem {
   id: string;
@@ -75,6 +77,13 @@ interface SalesTab {
   currency: 'IQD' | 'USD';
   warehouseId: string;
   editingSaleId?: string;
+  paymentMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'split';
+  splitPayments?: {
+    cash: number;
+    card: number;
+    transfer: number;
+    credit: number;
+  };
 }
 
 const STORAGE_TABS_KEY = 'dubsar_sales_tabs_v2';
@@ -115,7 +124,14 @@ function createDefaultTab(index = 1): SalesTab {
     isPaidManuallySet: false,
     priceType: 'retail',
     currency: 'IQD',
-    warehouseId: 'default-warehouse'
+    warehouseId: 'default-warehouse',
+    paymentMethod: 'cash',
+    splitPayments: {
+      cash: 0,
+      card: 0,
+      transfer: 0,
+      credit: 0
+    }
   };
 }
 
@@ -220,6 +236,13 @@ export default function ModernSalesPage() {
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const quickQueryInputRef = useRef<HTMLInputElement>(null);
+  const quickQuantityInputRef = useRef<HTMLInputElement>(null);
+  const customerInputRef = useRef<HTMLInputElement>(null);
+
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [customerHighlightIndex, setCustomerHighlightIndex] = useState(0);
+  const [isSplitPaymentOpen, setIsSplitPaymentOpen] = useState(false);
+  const [printFormat, setPrintFormat] = useState<'58mm' | '80mm' | 'A4'>('80mm');
 
   // Load backend data
   const loadData = async () => {
@@ -232,6 +255,12 @@ export default function ModernSalesPage() {
       setProducts(productRows || []);
       setCustomers(customerRows || []);
       setWarehouses(warehouseRows || []);
+
+      LocalAuthService.getUnifiedSettings().then((settings) => {
+        if (settings.defaultPrintFormat) {
+          setPrintFormat(settings.defaultPrintFormat as any);
+        }
+      }).catch(() => {});
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -288,6 +317,71 @@ export default function ModernSalesPage() {
         customerName: found.name || '',
         customerPhone: found.phone || '',
         customerAddress: found.address || ''
+      });
+    }
+  };
+
+  // Customer phone validation & formatter (Point 1: 11 digits Iraqi format, 0-9 ASCII only)
+  const handleCustomerPhoneChange = (val: string) => {
+    const ascii = toAsciiDigits(val);
+    const digitsOnly = ascii.replace(/\D/g, '').slice(0, 11);
+    updateActiveTab({ customerPhone: digitsOnly });
+  };
+
+  const isIraqiPhoneValid = useMemo(() => {
+    const p = (activeTab.customerPhone || '').trim();
+    return p.length === 11 && /^07\d{9}$/.test(p);
+  }, [activeTab.customerPhone]);
+
+  // Autocomplete customers search: by name OR phone number
+  const filteredCustomers = useMemo(() => {
+    const q = (activeTab.customerName || '').trim().toLowerCase();
+    if (!q || q === 'زبون نقدي') return [];
+    return customers.filter((c) => {
+      const nameMatch = (c.name || '').toLowerCase().includes(q);
+      const phoneMatch = (c.phone || '').includes(q);
+      return nameMatch || phoneMatch;
+    }).slice(0, 8);
+  }, [customers, activeTab.customerName]);
+
+  const selectCustomerSuggestion = (c: any) => {
+    updateActiveTab({
+      selectedCustomerId: c.id,
+      customerName: c.name || '',
+      customerPhone: c.phone || '',
+      customerAddress: c.address || ''
+    });
+    setIsCustomerDropdownOpen(false);
+    setTimeout(() => {
+      quickQueryInputRef.current?.focus();
+    }, 20);
+  };
+
+  // Payment method handler
+  const handlePaymentMethodChange = (method: 'cash' | 'card' | 'transfer' | 'credit' | 'split') => {
+    if (method === 'split') {
+      const currentPaid = activeTab.paidAmount || netTotal;
+      updateActiveTab({
+        paymentMethod: 'split',
+        splitPayments: activeTab.splitPayments || {
+          cash: currentPaid,
+          card: 0,
+          transfer: 0,
+          credit: Math.max(0, netTotal - currentPaid)
+        }
+      });
+      setIsSplitPaymentOpen(true);
+    } else if (method === 'credit') {
+      updateActiveTab({
+        paymentMethod: 'credit',
+        paidAmount: 0,
+        isPaidManuallySet: true
+      });
+    } else {
+      updateActiveTab({
+        paymentMethod: method,
+        paidAmount: netTotal,
+        isPaidManuallySet: false
       });
     }
   };
@@ -648,6 +742,113 @@ export default function ModernSalesPage() {
     }
   };
 
+  // Share Invoice via WhatsApp (Point 4)
+  const handleShareWhatsApp = (customSale?: any) => {
+    const appSettings = LocalAuthService.getUnifiedSettingsSync();
+    const bizName = appSettings.businessName || 'مؤسسة دوبسار التجارية';
+
+    const invNo = customSale ? (customSale.invoice_no || customSale.invoiceNo) : activeTab.invoiceNo;
+    const invDate = customSale ? (customSale.created_at || '').split('T')[0] : activeTab.invoiceDate;
+    const custName = customSale ? (customSale.customer_name || 'زبون نقدي') : (activeTab.customerName || 'زبون نقدي');
+    const custPhoneRaw = customSale ? (customSale.customer_phone || '') : (activeTab.customerPhone || '');
+    const cur = activeTab.currency === 'USD' ? '$' : 'د.ع';
+
+    const invTotal = customSale ? Number(customSale.total_amount || 0) : netTotal;
+    const invPaid = customSale ? Number(customSale.paid_amount || 0) : Number(activeTab.paidAmount || 0);
+    const invRemaining = Math.max(0, invTotal - invPaid);
+    const invItems = customSale ? (customSale.items || []) : activeTab.cart;
+
+    let phone = toAsciiDigits(custPhoneRaw).replace(/\D/g, '');
+    if (phone.startsWith('07')) {
+      phone = '964' + phone.substring(1);
+    } else if (phone.startsWith('7')) {
+      phone = '964' + phone;
+    }
+
+    const itemsLines = invItems
+      .map((it: any, idx: number) => {
+        const p = Number(it.unit_price || it.price || 0);
+        const q = Number(it.quantity || 1);
+        return `${idx + 1}. ${it.name} (${q} × ${p.toLocaleString('en-US')}) = ${(q * p).toLocaleString('en-US')} ${cur}`;
+      })
+      .join('\n');
+
+    const msg = [
+      `مرحباً ${custName}،`,
+      `شكراً لتعاملكم مع ${bizName}.`,
+      `📄 فاتورة رقم: ${invNo} | التاريخ: ${invDate}`,
+      itemsLines ? `\n📦 المواد:\n${itemsLines}\n` : '',
+      `💰 الصافي المطلوب: ${invTotal.toLocaleString('en-US')} ${cur}`,
+      `✅ الواصل: ${invPaid.toLocaleString('en-US')} ${cur}`,
+      invRemaining > 0 ? `📌 المتبقي: ${invRemaining.toLocaleString('en-US')} ${cur}` : '',
+      `\nنظام دوبسار لإدارة المبيعات | 07858833838`
+    ].filter(Boolean).join('\n');
+
+    const waUrl = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank');
+  };
+
+  // Global Keyboard Shortcuts (Point 2)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isAddProductOpen || isAddCustomerOpen || isSplitPaymentOpen || isSearchDialogOpen || isPrintPreviewOpen) {
+        return;
+      }
+
+      // F1: New invoice
+      if (e.key === 'F1') {
+        e.preventDefault();
+        handleNewInvoice();
+        return;
+      }
+
+      // F2 or Ctrl+S: Save invoice
+      if (e.key === 'F2' || (e.ctrlKey && (e.key === 's' || e.key === 'S'))) {
+        e.preventDefault();
+        handleSaveInvoice();
+        return;
+      }
+
+      // F3 or Esc: Focus Product Search Input
+      if (e.key === 'F3' || e.key === 'Escape') {
+        e.preventDefault();
+        quickQueryInputRef.current?.focus();
+        quickQueryInputRef.current?.select();
+        return;
+      }
+
+      // F4: Focus Customer Name Input
+      if (e.key === 'F4') {
+        e.preventDefault();
+        customerInputRef.current?.focus();
+        customerInputRef.current?.select();
+        return;
+      }
+
+      // F9 or Ctrl+P: Open Print Preview
+      if (e.key === 'F9' || (e.ctrlKey && (e.key === 'p' || e.key === 'P'))) {
+        e.preventDefault();
+        if (activeTab.cart.length > 0) {
+          setIsPrintPreviewOpen(true);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isAddProductOpen,
+    isAddCustomerOpen,
+    isSplitPaymentOpen,
+    isSearchDialogOpen,
+    isPrintPreviewOpen,
+    activeTab,
+    saving
+  ]);
+
   // Save invoice (Handles both new sales and editing historical sales)
   const handleSaveInvoice = async () => {
     if (saving) return;
@@ -656,7 +857,33 @@ export default function ModernSalesPage() {
       return;
     }
 
-    const isCredit = remaining > 0.01;
+    // Validate split payment (Point 4)
+    if (activeTab.paymentMethod === 'split') {
+      const sp = activeTab.splitPayments || { cash: 0, card: 0, transfer: 0, credit: 0 };
+      const sum = Number(sp.cash || 0) + Number(sp.card || 0) + Number(sp.transfer || 0) + Number(sp.credit || 0);
+      if (Math.abs(sum - netTotal) > 0.01) {
+        toast({
+          variant: 'destructive',
+          title: 'مجموع طرق الدفع غير متطابق',
+          description: `مجموع مبالغ الدفع (${sum.toLocaleString()} د.ع) لا يساوي إجمالي الفاتورة (${netTotal.toLocaleString()} د.ع). يرجى مطابقة المبلغ قبل الحفظ.`
+        });
+        setIsSplitPaymentOpen(true);
+        return;
+      }
+    }
+
+    let finalPaid = Number(activeTab.paidAmount) || 0;
+    if (activeTab.paymentMethod === 'split') {
+      const sp = activeTab.splitPayments || { cash: 0, card: 0, transfer: 0, credit: 0 };
+      finalPaid = Number(sp.cash || 0) + Number(sp.card || 0) + Number(sp.transfer || 0);
+    } else if (activeTab.paymentMethod === 'credit') {
+      finalPaid = activeTab.isPaidManuallySet ? Number(activeTab.paidAmount) || 0 : 0;
+    } else {
+      finalPaid = netTotal;
+    }
+
+    const finalRemaining = Math.max(0, netTotal - finalPaid);
+    const isCredit = finalRemaining > 0.01 || activeTab.paymentMethod === 'credit';
     const finalCustomerName = activeTab.customerName.trim() || 'زبون نقدي';
 
     if (isCredit && finalCustomerName === 'زبون نقدي' && !activeTab.selectedCustomerId) {
@@ -681,14 +908,15 @@ export default function ModernSalesPage() {
       };
 
       const paymentPayload = {
-        method: isCredit ? 'credit' : 'cash',
-        paidAmount: Number(activeTab.paidAmount) || 0,
+        method: activeTab.paymentMethod || (isCredit ? 'credit' : 'cash'),
+        paidAmount: finalPaid,
         discount: Number(discountAmount) || 0,
         priceType: activeTab.priceType,
         warehouseId: activeTab.warehouseId,
         currency: activeTab.currency,
         invoiceNo: activeTab.invoiceNo,
-        allowNegativeStock
+        allowNegativeStock,
+        splitPayments: activeTab.splitPayments
       };
 
       const cartPayload = activeTab.cart.map((item) => ({
@@ -698,8 +926,6 @@ export default function ModernSalesPage() {
         barcode: item.barcode,
         quantity: Number(item.quantity) || 1,
         price: Number(item.price) || 0,
-        serialNo: item.serialNo || '',
-        expiryDate: item.expiryDate || '',
         notes: item.notes || ''
       }));
 
@@ -741,10 +967,11 @@ export default function ModernSalesPage() {
         subtotal,
         discountAmount,
         netTotal,
-        paidAmount: activeTab.paidAmount,
-        remaining,
+        paidAmount: finalPaid,
+        remaining: finalRemaining,
         previousBalance,
-        currentBalance
+        currentBalance: previousBalance + finalRemaining,
+        paymentMethod: activeTab.paymentMethod
       };
       setLastCompletedInvoice(savedSnapshot);
 
@@ -752,7 +979,7 @@ export default function ModernSalesPage() {
         setTimeout(async () => {
           try {
             const appSettings = await LocalAuthService.getUnifiedSettings();
-            const format = appSettings.defaultPrintFormat || '80mm';
+            const format = printFormat;
             const printPayload = {
               invoiceNo: savedSnapshot.invoiceNo,
               date: savedSnapshot.date,
@@ -762,13 +989,14 @@ export default function ModernSalesPage() {
               cashierName: currentUser?.displayName || 'المسؤول',
               priceType: activeTab.priceType,
               currency: activeTab.currency,
+              paymentMethod: activeTab.paymentMethod,
               items: savedSnapshot.cart.map((it) => ({
                 name: it.name,
                 barcode: it.barcode,
                 quantity: it.quantity,
                 price: it.price,
                 unit: it.unit,
-                serialNo: it.serialNo
+                total: it.quantity * it.price
               })),
               subtotal: savedSnapshot.subtotal,
               discountAmount: savedSnapshot.discountAmount,
@@ -780,10 +1008,10 @@ export default function ModernSalesPage() {
               businessSettings: appSettings
             };
 
-            if (format === '80mm') {
-              await PrintEngine.printThermalReceipt(printPayload);
-            } else {
+            if (format === 'A4') {
               await PrintEngine.printA4Invoice(printPayload);
+            } else {
+              await PrintEngine.printThermalReceipt(printPayload, format);
             }
           } catch (err) {
             console.error('[Sales AutoPrint Error]:', err);
@@ -1093,33 +1321,98 @@ export default function ModernSalesPage() {
 
           {/* Customer Quick Fields Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800 items-center">
-            {/* Customer Dropdown + Quick Add */}
-            <div className="xl:col-span-4 flex items-center gap-1.5 min-w-0">
+            {/* Customer Dropdown + Autocomplete Combobox */}
+            <div className="xl:col-span-4 flex items-center gap-1.5 min-w-0 relative">
               <Label className="text-xs font-bold text-slate-600 dark:text-slate-400 shrink-0">الزبون:</Label>
-              <div className="flex-1 flex gap-1 min-w-0">
+              <div className="flex-1 flex gap-1 min-w-0 relative">
+                <div className="relative flex-1 min-w-0">
+                  <Input
+                    ref={customerInputRef}
+                    value={activeTab.customerName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      updateActiveTab({
+                        customerName: val,
+                        selectedCustomerId: val !== activeCustomer?.name ? '' : activeTab.selectedCustomerId
+                      });
+                      setIsCustomerDropdownOpen(true);
+                      setCustomerHighlightIndex(0);
+                    }}
+                    onFocus={() => {
+                      if (activeTab.customerName && activeTab.customerName !== 'زبون نقدي') {
+                        setIsCustomerDropdownOpen(true);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (isCustomerDropdownOpen && filteredCustomers.length > 0) {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setCustomerHighlightIndex((i) => Math.min(i + 1, filteredCustomers.length - 1));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setCustomerHighlightIndex((i) => Math.max(0, i - 1));
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (filteredCustomers[customerHighlightIndex]) {
+                            selectCustomerSuggestion(filteredCustomers[customerHighlightIndex]);
+                          }
+                        } else if (e.key === 'Escape') {
+                          setIsCustomerDropdownOpen(false);
+                        }
+                      }
+                    }}
+                    placeholder="اسم الزبون أو الهاتف..."
+                    className="h-8 text-xs font-bold bg-white dark:bg-slate-800 pr-7"
+                  />
+                  <Users className="h-3.5 w-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+
+                  {/* Customer Suggestions Dropdown */}
+                  {isCustomerDropdownOpen && filteredCustomers.length > 0 && (
+                    <div className="absolute z-50 top-9 right-0 left-0 max-h-52 overflow-y-auto rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl divide-y divide-slate-100 dark:divide-slate-800">
+                      {filteredCustomers.map((c, idx) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => selectCustomerSuggestion(c)}
+                          className={cn(
+                            "w-full px-2.5 py-1.5 text-right flex items-center justify-between text-xs transition-colors",
+                            idx === customerHighlightIndex
+                              ? "bg-primary/10 font-black text-primary"
+                              : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200"
+                          )}
+                        >
+                          <div>
+                            <span className="font-bold">{c.name}</span>
+                            {c.phone && <span className="text-[10px] text-muted-foreground mr-1.5 font-mono">({c.phone})</span>}
+                          </div>
+                          {Number(c.balance || 0) > 0 ? (
+                            <span className="text-[10px] font-mono font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded">
+                              ذمة: {Number(c.balance).toLocaleString()} د.ع
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground font-mono">خالص</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Select Saved List */}
                 <select
                   value={activeTab.selectedCustomerId}
                   onChange={(e) => handleSelectCustomer(e.target.value)}
-                  className="h-8 w-36 px-1.5 text-xs font-bold rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0"
+                  className="h-8 w-24 px-1 text-[11px] font-bold rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0"
+                  title="اختيار من قائمة العملاء المسجلين"
                 >
-                  <option value="">زبون نقدي</option>
+                  <option value="">نقدي</option>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} {c.phone ? `(${c.phone})` : ''}
+                      {c.name}
                     </option>
                   ))}
                 </select>
-                <Input
-                  value={activeTab.customerName}
-                  onChange={(e) => {
-                    updateActiveTab({
-                      customerName: e.target.value,
-                      selectedCustomerId: e.target.value !== activeCustomer?.name ? '' : activeTab.selectedCustomerId
-                    });
-                  }}
-                  placeholder="اسم الزبون..."
-                  className="h-8 text-xs font-bold bg-white dark:bg-slate-800 flex-1 min-w-0"
-                />
+
                 <Button
                   type="button"
                   variant="outline"
@@ -1133,15 +1426,28 @@ export default function ModernSalesPage() {
               </div>
             </div>
 
-            {/* Customer Phone */}
+            {/* Customer Phone (11 digits Iraqi format validation) */}
             <div className="xl:col-span-2 flex items-center gap-1.5 min-w-0">
               <Label className="text-xs font-bold text-slate-600 dark:text-slate-400 shrink-0">الهاتف:</Label>
-              <Input
-                value={activeTab.customerPhone}
-                onChange={(e) => updateActiveTab({ customerPhone: e.target.value })}
-                placeholder="رقم الهاتف..."
-                className="h-8 text-xs font-bold bg-white dark:bg-slate-800 flex-1"
-              />
+              <div className="relative flex-1">
+                <Input
+                  value={activeTab.customerPhone}
+                  onChange={(e) => handleCustomerPhoneChange(e.target.value)}
+                  placeholder="07XXXXXXXXX"
+                  maxLength={11}
+                  className={cn(
+                    "h-8 text-xs font-bold font-mono pl-7 transition-colors",
+                    isIraqiPhoneValid
+                      ? "border-emerald-500 bg-emerald-50/50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                      : "bg-white dark:bg-slate-800"
+                  )}
+                />
+                {isIraqiPhoneValid && (
+                  <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center text-emerald-600 dark:text-emerald-400">
+                    <Check className="h-3.5 w-3.5 stroke-[3]" />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Customer Address */}
@@ -1199,17 +1505,21 @@ export default function ModernSalesPage() {
                       setHighlightedIndex((idx) => Math.max(0, idx - 1));
                     } else if (e.key === 'Enter') {
                       e.preventDefault();
-                      if (filteredProducts[highlightedIndex]) {
-                        // Fast Enter-to-add with quantity 1
-                        addProductToCart(filteredProducts[highlightedIndex], 1);
-                      } else if (quickSelectedProduct) {
-                        addProductToCart(quickSelectedProduct, Math.max(1, quickQuantity));
+                      const candidate = filteredProducts[highlightedIndex] || quickSelectedProduct;
+                      if (candidate) {
+                        setQuickSelectedProduct(candidate);
+                        setQuickPrice(priceFor(candidate));
+                        setQuickQuantity(1);
+                        setTimeout(() => {
+                          quickQuantityInputRef.current?.focus();
+                          quickQuantityInputRef.current?.select();
+                        }, 20);
                       } else if (quickQuery.trim()) {
                         addQuickLine();
                       }
                     }
                   }}
-                  placeholder="المادة: اكتب الاسم أو الباركود ثم اضغط Enter للإضافة السريعة..."
+                  placeholder="المادة: اكتب الاسم أو الباركود ثم اضغط Enter للإدخال السريع..."
                   className="h-9 pr-8 text-xs font-black bg-white dark:bg-slate-900 border-emerald-400/80 shadow-sm"
                 />
                 <Search className="h-4 w-4 text-emerald-700 absolute right-2.5 top-1/2 -translate-y-1/2 opacity-70" />
@@ -1227,7 +1537,13 @@ export default function ModernSalesPage() {
                           type="button"
                           key={p.id}
                           onClick={() => {
-                            addProductToCart(p, 1);
+                            setQuickSelectedProduct(p);
+                            setQuickPrice(priceFor(p));
+                            setQuickQuantity(1);
+                            setTimeout(() => {
+                              quickQuantityInputRef.current?.focus();
+                              quickQuantityInputRef.current?.select();
+                            }, 20);
                           }}
                           className={cn(
                             'w-full px-3 py-2 text-right flex items-center justify-between text-xs transition-colors',
@@ -1264,14 +1580,18 @@ export default function ModernSalesPage() {
             <div className="col-span-4 lg:col-span-2 flex items-center gap-1.5">
               <span className="text-xs font-black text-emerald-900 dark:text-emerald-300 shrink-0">العدد:</span>
               <Input
+                ref={quickQuantityInputRef}
                 type="number"
                 min="1"
                 value={quickQuantity}
                 onChange={(e) => setQuickQuantity(Math.max(1, Number(e.target.value) || 1))}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') addQuickLine();
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addQuickLine();
+                  }
                 }}
-                className="h-9 text-xs font-black text-center bg-white dark:bg-slate-900 border-emerald-400/80"
+                className="h-9 text-xs font-black text-center bg-white dark:bg-slate-900 border-emerald-400/80 font-mono"
               />
             </div>
 
@@ -1284,9 +1604,12 @@ export default function ModernSalesPage() {
                 value={quickPrice}
                 onChange={(e) => setQuickPrice(Math.max(0, Number(e.target.value) || 0))}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') addQuickLine();
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addQuickLine();
+                  }
                 }}
-                className="h-9 text-xs font-black text-center bg-white dark:bg-slate-900 border-emerald-400/80"
+                className="h-9 text-xs font-black text-center bg-white dark:bg-slate-900 border-emerald-400/80 font-mono"
               />
             </div>
 
@@ -1342,13 +1665,11 @@ export default function ModernSalesPage() {
               <tr>
                 <th className="p-2.5 w-10 text-center border-l">ت</th>
                 <th className="p-2.5 w-36 border-l">الباركود</th>
-                <th className="p-2.5 min-w-[200px] border-l">اسم المادة</th>
-                <th className="p-2.5 w-32 text-center border-l">العدد</th>
-                <th className="p-2.5 w-32 text-center border-l">سعر البيع</th>
-                <th className="p-2.5 w-32 text-center border-l">المجموع</th>
-                <th className="p-2.5 w-36 border-l">الرقم التسلسلي</th>
-                <th className="p-2.5 w-28 border-l">تاريخ النفاذية</th>
-                <th className="p-2.5 min-w-[140px] border-l">الملاحظة</th>
+                <th className="p-2.5 min-w-[240px] border-l">اسم المادة</th>
+                <th className="p-2.5 w-36 text-center border-l">العدد</th>
+                <th className="p-2.5 w-36 text-center border-l">سعر البيع</th>
+                <th className="p-2.5 w-36 text-center border-l">المجموع</th>
+                <th className="p-2.5 min-w-[160px] border-l">الملاحظة</th>
                 <th className="p-2.5 w-12 text-center">حذف</th>
               </tr>
             </thead>
@@ -1364,7 +1685,7 @@ export default function ModernSalesPage() {
                       isBelowCost && 'bg-amber-50/40 dark:bg-amber-950/20'
                     )}
                   >
-                    <td className="p-2 text-center text-muted-foreground border-l">{idx + 1}</td>
+                    <td className="p-2 text-center text-muted-foreground border-l font-mono">{idx + 1}</td>
                     <td className="p-2 font-mono text-[11px] text-slate-600 dark:text-slate-400 border-l">
                       {item.barcode || '-'}
                     </td>
@@ -1396,7 +1717,13 @@ export default function ModernSalesPage() {
                           min="1"
                           value={item.quantity}
                           onChange={(e) => updateItemQty(item.id, Number(e.target.value))}
-                          className="w-12 h-6 text-center font-black rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              quickQueryInputRef.current?.focus();
+                            }
+                          }}
+                          className="w-14 h-7 text-center font-black rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono"
                         />
                         <button
                           type="button"
@@ -1413,38 +1740,17 @@ export default function ModernSalesPage() {
                         min="0"
                         value={item.price}
                         onChange={(e) => updateItemPrice(item.id, Number(e.target.value))}
-                        className="w-24 h-6 px-1.5 text-center font-black rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-primary"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            quickQueryInputRef.current?.focus();
+                          }
+                        }}
+                        className="w-28 h-7 px-1.5 text-center font-black rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-primary font-mono"
                       />
                     </td>
-                    <td className="p-2 border-l text-center font-black text-emerald-700 dark:text-emerald-400">
+                    <td className="p-2 border-l text-center font-black text-emerald-700 dark:text-emerald-400 font-mono">
                       {(item.quantity * item.price).toLocaleString()}
-                    </td>
-                    <td className="p-1 border-l">
-                      <input
-                        type="text"
-                        value={item.serialNo || ''}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          updateActiveTab({
-                            cart: activeTab.cart.map((i) => (i.id === item.id ? { ...i, serialNo: val } : i))
-                          });
-                        }}
-                        placeholder="سيريال..."
-                        className="w-full h-6 px-1.5 text-[11px] font-medium rounded border border-slate-200 dark:border-slate-700 bg-transparent"
-                      />
-                    </td>
-                    <td className="p-1 border-l">
-                      <input
-                        type="date"
-                        value={item.expiryDate || ''}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          updateActiveTab({
-                            cart: activeTab.cart.map((i) => (i.id === item.id ? { ...i, expiryDate: val } : i))
-                          });
-                        }}
-                        className="w-full h-6 px-1 text-[10px] font-medium rounded border border-slate-200 dark:border-slate-700 bg-transparent"
-                      />
                     </td>
                     <td className="p-1 border-l">
                       <input
@@ -1456,8 +1762,14 @@ export default function ModernSalesPage() {
                             cart: activeTab.cart.map((i) => (i.id === item.id ? { ...i, notes: val } : i))
                           });
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            quickQueryInputRef.current?.focus();
+                          }
+                        }}
                         placeholder="ملاحظات..."
-                        className="w-full h-6 px-1.5 text-[11px] font-medium rounded border border-slate-200 dark:border-slate-700 bg-transparent"
+                        className="w-full h-7 px-2 text-xs font-medium rounded border border-slate-200 dark:border-slate-700 bg-transparent"
                       />
                     </td>
                     <td className="p-1 text-center">
@@ -1587,6 +1899,58 @@ export default function ModernSalesPage() {
               </span>
             </div>
 
+            {/* Payment Method Selector (Point 4) */}
+            <div className="flex items-center gap-1.5 border rounded-lg p-1 bg-slate-50 dark:bg-slate-800">
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-400">طريقة الدفع:</span>
+              <select
+                value={activeTab.paymentMethod || 'cash'}
+                onChange={(e) => handlePaymentMethodChange(e.target.value as any)}
+                className="h-7 px-2 text-xs font-black rounded border bg-white dark:bg-slate-900 text-primary"
+              >
+                <option value="cash">نقدي</option>
+                <option value="card">Mastercard / بطاقة</option>
+                <option value="transfer">تحويل</option>
+                <option value="credit">آجل</option>
+                <option value="split">دفع مختلط</option>
+              </select>
+              {activeTab.paymentMethod === 'split' && (
+                <button
+                  type="button"
+                  onClick={() => setIsSplitPaymentOpen(true)}
+                  className="h-7 px-2 text-[10px] font-black rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                >
+                  تعديل التوزيع
+                </button>
+              )}
+            </div>
+
+            {/* Print Paper Format Toggle (Point 6) */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border">
+              <span className="text-[11px] font-bold text-slate-500 px-1">المقاس:</span>
+              {(['58mm', '80mm', 'A4'] as const).map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => {
+                    setPrintFormat(fmt);
+                    try {
+                      const s = JSON.parse(localStorage.getItem('dubsar_app_settings') || '{}');
+                      s.defaultPrintFormat = fmt;
+                      localStorage.setItem('dubsar_app_settings', JSON.stringify(s));
+                    } catch {}
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px] font-black rounded transition-all",
+                    printFormat === fmt 
+                      ? "bg-primary text-white shadow-sm" 
+                      : "text-slate-600 dark:text-slate-400 hover:text-black dark:hover:text-white"
+                  )}
+                >
+                  {fmt}
+                </button>
+              ))}
+            </div>
+
             {/* Auto Print Checkbox */}
             <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
               <input
@@ -1648,6 +2012,19 @@ export default function ModernSalesPage() {
               <Printer className="h-4 w-4" />
               <span>معاينة وطباعة</span>
             </Button>
+
+            {/* Share via WhatsApp Button (Point 4) */}
+            <Button
+              type="button"
+              disabled={activeTab.cart.length === 0}
+              onClick={() => handleShareWhatsApp()}
+              variant="outline"
+              className="h-10 px-3.5 font-black text-xs gap-1.5 rounded-lg border-emerald-300 text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800"
+              title="إرسال تفاصيل الفاتورة عبر واتساب"
+            >
+              <Send className="h-4 w-4" />
+              <span>واتساب</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -1677,7 +2054,7 @@ export default function ModernSalesPage() {
               <div className="flex justify-between border-b pb-2">
                 <span className="font-bold text-muted-foreground">المبلغ الصافي:</span>
                 <span className="font-black text-emerald-700 font-mono">
-                  {Number(searchedSale.total_amount || 0).toLocaleString()} د.ع
+                  {Number(searchedSale.total_amount || 0).toLocaleString('en-US')} د.ع
                 </span>
               </div>
               <div className="flex justify-between border-b pb-2">
@@ -1695,6 +2072,17 @@ export default function ModernSalesPage() {
               <Edit className="h-4 w-4" />
               <span>تعديل في المبيعات</span>
             </Button>
+            {searchedSale && (
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-1.5 font-black border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                onClick={() => handleShareWhatsApp(searchedSale)}
+              >
+                <Send className="h-4 w-4" />
+                <span>واتساب</span>
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -1785,8 +2173,18 @@ export default function ModernSalesPage() {
             </div>
 
             <div>
-              <Label className="font-black text-xs">رقم الهاتف</Label>
-              <Input name="phone" placeholder="07XXXXXXXXX" className="h-9 mt-1 font-mono text-xs" />
+              <Label className="font-black text-xs">رقم الهاتف (11 رقماً)</Label>
+              <Input
+                name="phone"
+                maxLength={11}
+                placeholder="07XXXXXXXXX"
+                dir="ltr"
+                onInput={(e) => {
+                  const target = e.currentTarget;
+                  target.value = toAsciiDigits(target.value).replace(/\D/g, '').slice(0, 11);
+                }}
+                className="h-9 mt-1 font-mono text-xs text-right"
+              />
             </div>
 
             <div>
@@ -1807,6 +2205,169 @@ export default function ModernSalesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ========================================================================= */}
+      {/* DIALOG: الدفع المختلط / المجزأ (Split Payment - Point 4)                 */}
+      {/* ========================================================================= */}
+      <Dialog open={isSplitPaymentOpen} onOpenChange={setIsSplitPaymentOpen}>
+        <DialogContent className="rounded-2xl max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-primary flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              <span>توزيع مبالغ الدفع المختلط</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-300">إجمالي الفاتورة المطلوب:</span>
+              <span className="text-base font-black text-primary font-mono">
+                {netTotal.toLocaleString()} {activeTab.currency === 'USD' ? '$' : 'د.ع'}
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {/* Cash */}
+              <div className="flex items-center justify-between gap-2 border p-2 rounded-lg bg-white dark:bg-slate-900">
+                <span className="text-xs font-black min-w-[120px]">💵 نقداً (Cash):</span>
+                <Input
+                  type="number"
+                  min="0"
+                  value={activeTab.splitPayments?.cash ?? 0}
+                  onChange={(e) => {
+                    const val = Number(e.target.value) || 0;
+                    updateActiveTab({
+                      splitPayments: {
+                        ...(activeTab.splitPayments || { cash: 0, card: 0, transfer: 0, credit: 0 }),
+                        cash: val
+                      }
+                    });
+                  }}
+                  className="h-8 font-black font-mono text-center text-xs"
+                />
+              </div>
+
+              {/* Card / Mastercard */}
+              <div className="flex items-center justify-between gap-2 border p-2 rounded-lg bg-white dark:bg-slate-900">
+                <span className="text-xs font-black min-w-[120px]">💳 ماستركارد / بطاقة:</span>
+                <Input
+                  type="number"
+                  min="0"
+                  value={activeTab.splitPayments?.card ?? 0}
+                  onChange={(e) => {
+                    const val = Number(e.target.value) || 0;
+                    updateActiveTab({
+                      splitPayments: {
+                        ...(activeTab.splitPayments || { cash: 0, card: 0, transfer: 0, credit: 0 }),
+                        card: val
+                      }
+                    });
+                  }}
+                  className="h-8 font-black font-mono text-center text-xs"
+                />
+              </div>
+
+              {/* Bank Transfer */}
+              <div className="flex items-center justify-between gap-2 border p-2 rounded-lg bg-white dark:bg-slate-900">
+                <span className="text-xs font-black min-w-[120px]">📱 تحويل / محفظة:</span>
+                <Input
+                  type="number"
+                  min="0"
+                  value={activeTab.splitPayments?.transfer ?? 0}
+                  onChange={(e) => {
+                    const val = Number(e.target.value) || 0;
+                    updateActiveTab({
+                      splitPayments: {
+                        ...(activeTab.splitPayments || { cash: 0, card: 0, transfer: 0, credit: 0 }),
+                        transfer: val
+                      }
+                    });
+                  }}
+                  className="h-8 font-black font-mono text-center text-xs"
+                />
+              </div>
+
+              {/* Credit / On Account */}
+              <div className="flex items-center justify-between gap-2 border p-2 rounded-lg bg-white dark:bg-slate-900">
+                <span className="text-xs font-black min-w-[120px]">📝 آجل / ذمة:</span>
+                <Input
+                  type="number"
+                  min="0"
+                  value={activeTab.splitPayments?.credit ?? 0}
+                  onChange={(e) => {
+                    const val = Number(e.target.value) || 0;
+                    updateActiveTab({
+                      splitPayments: {
+                        ...(activeTab.splitPayments || { cash: 0, card: 0, transfer: 0, credit: 0 }),
+                        credit: val
+                      }
+                    });
+                  }}
+                  className="h-8 font-black font-mono text-center text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Sum and Validation Status */}
+            {(() => {
+              const sp = activeTab.splitPayments || { cash: 0, card: 0, transfer: 0, credit: 0 };
+              const allocatedSum = Number(sp.cash || 0) + Number(sp.card || 0) + Number(sp.transfer || 0) + Number(sp.credit || 0);
+              const diff = netTotal - allocatedSum;
+              const isMatch = Math.abs(diff) < 0.01;
+
+              return (
+                <div className={cn(
+                  "p-3 rounded-xl border flex items-center justify-between font-bold text-xs",
+                  isMatch ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 text-emerald-800 dark:text-emerald-300" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 text-amber-800 dark:text-amber-300"
+                )}>
+                  <div>
+                    <span>المجموع الموزع: </span>
+                    <span className="font-mono font-black">{allocatedSum.toLocaleString()}</span>
+                  </div>
+                  {isMatch ? (
+                    <span className="flex items-center gap-1 font-black text-emerald-700 dark:text-emerald-400">
+                      <Check className="h-4 w-4" /> متطابق تماماً
+                    </span>
+                  ) : (
+                    <span>
+                      {diff > 0 ? `المتبقي: ${diff.toLocaleString()} د.ع` : `الزيادة: ${Math.abs(diff).toLocaleString()} د.ع`}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                type="button"
+                className="font-black bg-primary text-white"
+                onClick={() => {
+                  const sp = activeTab.splitPayments || { cash: 0, card: 0, transfer: 0, credit: 0 };
+                  const allocatedSum = Number(sp.cash || 0) + Number(sp.card || 0) + Number(sp.transfer || 0) + Number(sp.credit || 0);
+                  if (Math.abs(netTotal - allocatedSum) > 0.01) {
+                    toast({
+                      variant: 'destructive',
+                      title: 'المجموع غير مطابق',
+                      description: `يرجى جعل مجموع طرق الدفع مساوياً لصافي الفاتورة (${netTotal.toLocaleString()} د.ع)`
+                    });
+                    return;
+                  }
+                  setIsSplitPaymentOpen(false);
+                }}
+              >
+                تأكيد واعتماد التوزيع
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsSplitPaymentOpen(false)}
+              >
+                إغلاق
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Printable Invoice Container (Hidden on screen, ONLY visible to printer) */}
       <div className="printable-invoice-wrapper hidden print:block">
         <PrintableInvoice
@@ -1821,6 +2382,8 @@ export default function ModernSalesPage() {
           cashierName={currentUser?.displayName || 'المسؤول'}
           priceType={activeTab.priceType}
           currency={activeTab.currency}
+          paymentMethod={lastCompletedInvoice?.paymentMethod || activeTab.paymentMethod}
+          format={printFormat}
           items={lastCompletedInvoice?.cart || activeTab.cart}
           subtotal={lastCompletedInvoice?.subtotal || subtotal}
           discountAmount={lastCompletedInvoice?.discountAmount || discountAmount}
@@ -1836,6 +2399,7 @@ export default function ModernSalesPage() {
       <PrintPreviewModal
         isOpen={isPrintPreviewOpen}
         onClose={() => setIsPrintPreviewOpen(false)}
+        initialFormat={printFormat}
         invoiceData={{
           invoiceNo: activeTab.invoiceNo,
           date: activeTab.invoiceDate,
@@ -1848,6 +2412,7 @@ export default function ModernSalesPage() {
           cashierName: currentUser?.displayName || 'المسؤول',
           priceType: activeTab.priceType,
           currency: activeTab.currency,
+          paymentMethod: activeTab.paymentMethod,
           items: activeTab.cart,
           subtotal,
           discountAmount,

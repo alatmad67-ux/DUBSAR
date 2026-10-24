@@ -31,6 +31,13 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
   const dateStr = toAsciiDigits(doc.date || new Date().toISOString().split('T')[0]);
   const timeStr = toAsciiDigits(doc.time || '');
 
+  const rawMethod = doc.paymentMethod || (doc as any).payment_method || (remaining > 0.01 ? 'credit' : 'cash');
+  let paymentMethodName = 'نقدي';
+  if (rawMethod === 'card' || rawMethod === 'mastercard') paymentMethodName = 'Mastercard / بطاقة';
+  else if (rawMethod === 'transfer') paymentMethodName = 'تحويل';
+  else if (rawMethod === 'credit') paymentMethodName = 'آجل';
+  else if (rawMethod === 'split') paymentMethodName = 'دفع مختلط';
+
   // Customer balances
   const showPrevBal = opts.showPreviousBalance !== false;
   const showCurrBal = opts.showCustomerBalance !== false;
@@ -279,8 +286,9 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
           align-items: baseline;
           gap: 5px;
           font-size: 11px;
-          white-space: nowrap;
-          overflow: hidden;
+          white-space: normal;
+          word-break: break-word;
+          overflow-wrap: break-word;
           color: #000000;
         }
 
@@ -294,8 +302,9 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
         .info-val {
           color: #000000;
           font-weight: 800;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          white-space: normal;
+          word-break: break-word;
+          overflow-wrap: break-word;
         }
 
         /* Table */
@@ -466,7 +475,7 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
             </div>
 
             <!-- Row 2 -->
-            <div class="a4-info-col">
+            <div class="a4-info-col" style="grid-column: span 2;">
               <span class="info-lbl">اسم الزبون:</span>
               <span class="info-val bold">${party.name || 'زبون نقدي'}</span>
             </div>
@@ -475,13 +484,22 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
               <span class="info-val font-mono num-ltr">${party.phone || '---'}</span>
             </div>
             <div class="a4-info-col">
+              <span class="info-lbl">طريقة الدفع:</span>
+              <span class="info-val bold">${paymentMethodName}</span>
+            </div>
+            ${party.address ? `
+            <div class="a4-info-col" style="grid-column: span 3;">
               <span class="info-lbl">العنوان:</span>
-              <span class="info-val">${party.address || '---'}</span>
+              <span class="info-val">${party.address}</span>
             </div>
             <div class="a4-info-col">
               <span class="info-lbl">${doc.warehouse ? 'المستودع:' : 'المستخدم:'}</span>
               <span class="info-val">${doc.warehouse || doc.cashierName || 'المستودع الرئيسي'}</span>
-            </div>
+            </div>` : `
+            <div class="a4-info-col" style="grid-column: span 4;">
+              <span class="info-lbl">${doc.warehouse ? 'المستودع:' : 'المستخدم:'}</span>
+              <span class="info-val">${doc.warehouse || doc.cashierName || 'المستودع الرئيسي'}</span>
+            </div>`}
           </div>
         </div>
 
@@ -505,31 +523,35 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
             </div>
           </div>
 
-          <!-- Totals Box -->
+          <!-- Totals Box (Enhanced Financial Summary) -->
           <div class="a4-totals-box">
             <div class="total-row">
               <span>إجمالي المواد:</span>
               <span class="font-mono num-ltr bold">${formatNumber(subtotal)} ${cur}</span>
             </div>
             ${discount > 0 ? `
-            <div class="total-row" style="color: #dc2626;">
+            <div class="total-row">
               <span>الخصم الممنوح:</span>
               <span class="font-mono num-ltr bold">-${formatNumber(discount)} ${cur}</span>
             </div>` : ''}
             <div class="total-row grand-total">
-              <span>المبلغ الصافي:</span>
+              <span>الإجمالي النهائي (الصافي):</span>
               <span class="font-mono num-ltr">${formatNumber(netTotal)} ${cur}</span>
             </div>
             <div class="total-row">
-              <span>المدفوع نقداً:</span>
-              <span class="font-mono num-ltr bold" style="color: #16a34a;">${formatNumber(paid)} ${cur}</span>
+              <span>المبلغ المدفوع:</span>
+              <span class="font-mono num-ltr bold">${formatNumber(paid)} ${cur}</span>
             </div>
             ${remaining > 0 ? `
             <div class="total-row">
               <span>المتبقي في الذمة:</span>
               <span class="font-mono num-ltr bold debt-highlight">${formatNumber(remaining)} ${cur}</span>
             </div>` : ''}
-            <div class="total-row" style="color: #64748b; font-size: 9.5px;">
+            <div class="total-row">
+              <span>طريقة الدفع:</span>
+              <span class="bold">${paymentMethodName}</span>
+            </div>
+            <div class="total-row" style="color: #000000; font-size: 9.5px; opacity: 0.85; border-top: 1px dotted #000000;">
               <span>عدد المواد:</span>
               <span class="font-mono num-ltr">${itemCount}</span>
             </div>
@@ -550,10 +572,9 @@ export function renderA4InvoiceTemplate(template: DocumentTemplate, data: Docume
           ${opts.showOrganizerName !== false ? '<div class="sig-box">توقيع المنظم</div>' : ''}
         </div>` : ''}
 
-        <!-- Minimal Unobtrusive Brand Footer -->
+        <!-- Fixed DUBSAR System Footer -->
         <div class="dubsar-minimal-footer">
-          <span>اسم النظام: DUBSAR</span>
-          ${phone ? `<span class="dubsar-footer-dot">•</span><span>رقم الهاتف: <span class="num-ltr font-mono">${phone}</span></span>` : ''}
+          نظام دوبسار لإدارة المبيعات | 07858833838
         </div>
       </div>
     </body>

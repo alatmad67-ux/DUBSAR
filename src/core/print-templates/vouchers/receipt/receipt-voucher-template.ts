@@ -105,8 +105,7 @@ export function renderReceiptVoucherTemplate(template: DocumentTemplate, data: D
         </div>
 
         <div class="dubsar-minimal-footer">
-          <span>نظام DUBSAR المالي</span>
-          ${phone ? `<span class="dubsar-footer-dot">•</span><span>${phone}</span>` : ''}
+          نظام دوبسار لإدارة المبيعات | 07858833838
         </div>
       </body>
       </html>
@@ -270,7 +269,7 @@ export function renderReceiptVoucherTemplate(template: DocumentTemplate, data: D
             <div class="v-biz-name">${business.name || 'مؤسسة دوبسار التجارية'}</div>
             <div class="v-biz-sub">${business.address || ''} ${phone ? `• هاتف: ${phone}` : ''}</div>
           </div>
-          ${business.logo ? `<img src="${business.logo}" style="max-height: 50px; max-width: 120px; object-fit: contain;" alt="logo" />` : '<div style="font-size: 12px; font-weight: 900; color: var(--dubsar-navy);">DUBSAR 2.0</div>'}
+          ${business.logo ? `<img src="${business.logo}" style="max-height: 50px; max-width: 120px; object-fit: contain;" alt="logo" />` : '<div style="font-size: 12px; font-weight: 900; color: var(--dubsar-navy);">DUBSAR</div>'}
         </div>
 
         <!-- Title Banner -->
@@ -338,8 +337,7 @@ export function renderReceiptVoucherTemplate(template: DocumentTemplate, data: D
 
         <!-- Minimal Brand Footer -->
         <div class="dubsar-minimal-footer">
-          <span>نظام DUBSAR المالي</span>
-          ${phone ? `<span class="dubsar-footer-dot">•</span><span>${phone}</span>` : ''}
+          نظام دوبسار لإدارة المبيعات | 07858833838
         </div>
       </div>
     </body>

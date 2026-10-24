@@ -129,7 +129,7 @@ export default function DailyReportPage() {
 
       {/* Printable Report Header */}
       <div className="hidden print:block text-center border-b pb-4 mb-4">
-        <h2 className="text-2xl font-black">نظام دوبسAR 2.0 - تقرير الحركة اليومية</h2>
+        <h2 className="text-2xl font-black">نظام DUBSAR - تقرير الحركة اليومية</h2>
         <p className="text-sm font-bold">التاريخ: {selectedDate}</p>
       </div>
 
@@ -298,8 +298,8 @@ export default function DailyReportPage() {
       />
 
       {/* Mandatory DUBSAR Print Footer */}
-      <div className="hidden print:block fixed bottom-4 right-0 left-0 text-center border-t pt-2 text-xs font-bold text-slate-600">
-        <p>نظام DUBSAR لإدارة المبيعات | هاتف الدعم الفني: 07858833838</p>
+      <div className="hidden print:block fixed bottom-4 right-0 left-0 text-center border-t pt-2 text-xs font-bold text-black">
+        <p>نظام دوبسار لإدارة المبيعات | 07858833838</p>
       </div>
     </div>
   );

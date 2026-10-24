@@ -61,7 +61,7 @@ export function renderBaseReportTemplate(template: DocumentTemplate, data: BaseR
       </div>
       <div class="rep-brand-badge">
         ${business.logo ? `<img src="${business.logo}" style="max-height: 44px; max-width: 100px; object-fit: contain;" alt="شعار" />` : ''}
-        <span class="rep-dubsar-logo font-mono">DUBSAR 2.0</span>
+        <span class="rep-dubsar-logo font-mono">DUBSAR</span>
       </div>
     </div>
   `;
@@ -356,8 +356,7 @@ export function renderBaseReportTemplate(template: DocumentTemplate, data: BaseR
 
         <!-- Minimal Brand Footer -->
         <div class="dubsar-minimal-footer">
-          <span>نظام DUBSAR لإدارة الأعمال والتقارير المالية</span>
-          ${phone ? `<span class="dubsar-footer-dot">•</span><span>${phone}</span>` : ''}
+          نظام دوبسار لإدارة المبيعات | 07858833838
         </div>
       </div>
     </body>

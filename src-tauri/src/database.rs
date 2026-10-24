@@ -619,7 +619,7 @@ impl Database {
         }).map_err(db_error)?.collect::<Result<Vec<_>, _>>().map_err(db_error)?;
 
         let mut items_stmt = connection.prepare(
-            "SELECT si.id, si.product_id, p.name, p.barcode, si.quantity, si.unit_price, si.total_price, si.price_type 
+            "SELECT si.id, si.product_id, p.name, p.barcode, si.quantity, si.unit_price, si.total_price, si.price_type, p.purchase_price, p.retail_price
              FROM sale_items si 
              LEFT JOIN products p ON p.id = si.product_id 
              WHERE si.sale_id = ?1"
@@ -639,6 +639,9 @@ impl Database {
                     "total": i_row.get::<_, f64>(6)?,
                     "totalPrice": i_row.get::<_, f64>(6)?,
                     "priceType": i_row.get::<_, String>(7)?,
+                    "cost": i_row.get::<_, Option<f64>>(8)?.unwrap_or(0.0),
+                    "purchasePrice": i_row.get::<_, Option<f64>>(8)?.unwrap_or(0.0),
+                    "retailPrice": i_row.get::<_, Option<f64>>(9)?.unwrap_or(0.0),
                 }))
             }).map_err(db_error)?.collect::<Result<Vec<_>, _>>().map_err(db_error)?;
 

@@ -66,38 +66,47 @@ export const TEMPLATE_REGISTRY: Partial<Record<DocumentType, Record<TemplateForm
   sales_invoice: {
     A4: renderA4InvoiceTemplate,
     '80mm': renderThermalInvoiceTemplate,
+    '58mm': renderThermalInvoiceTemplate,
   },
   purchase_invoice: {
     A4: (template, data) => renderA4InvoiceTemplate({ ...template, titleArabic: template.titleArabic || 'فاتورة مشتريات رسمية' }, data),
     '80mm': (template, data) => renderThermalInvoiceTemplate({ ...template, titleArabic: template.titleArabic || 'قائمة مشتريات' }, data),
+    '58mm': (template, data) => renderThermalInvoiceTemplate({ ...template, titleArabic: template.titleArabic || 'قائمة مشتريات' }, data),
   },
   sales_return: {
     A4: renderSalesReturnTemplate,
     '80mm': renderSalesReturnTemplate,
+    '58mm': renderSalesReturnTemplate,
   },
   purchase_return: {
     A4: renderPurchaseReturnTemplate,
     '80mm': renderPurchaseReturnTemplate,
+    '58mm': renderPurchaseReturnTemplate,
   },
   receipt_voucher: {
     A4: renderReceiptVoucherTemplate,
     '80mm': renderThermalReceiptTemplate,
+    '58mm': renderThermalReceiptTemplate,
   },
   payment_voucher: {
     A4: renderPaymentVoucherTemplate,
     '80mm': renderPaymentVoucherTemplate,
+    '58mm': renderPaymentVoucherTemplate,
   },
   quotation: {
     A4: (template, data) => renderA4InvoiceTemplate({ ...template, titleArabic: template.titleArabic || 'عرض أسعار تجاري' }, data),
     '80mm': (template, data) => renderThermalInvoiceTemplate({ ...template, titleArabic: template.titleArabic || 'عرض أسعار' }, data),
+    '58mm': (template, data) => renderThermalInvoiceTemplate({ ...template, titleArabic: template.titleArabic || 'عرض أسعار' }, data),
   },
   sales_list: {
     A4: renderA4InvoiceTemplate,
     '80mm': renderThermalInvoiceTemplate,
+    '58mm': renderThermalInvoiceTemplate,
   },
   purchase_list: {
     A4: (template, data) => renderA4InvoiceTemplate({ ...template, titleArabic: template.titleArabic || 'قائمة مشتريات' }, data),
     '80mm': (template, data) => renderThermalInvoiceTemplate({ ...template, titleArabic: template.titleArabic || 'قائمة مشتريات' }, data),
+    '58mm': (template, data) => renderThermalInvoiceTemplate({ ...template, titleArabic: template.titleArabic || 'قائمة مشتريات' }, data),
   },
   customer_statement: {
     A4: (template, data) => renderDebtsReportTemplate(template, data),

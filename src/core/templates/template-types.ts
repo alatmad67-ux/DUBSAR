@@ -26,7 +26,7 @@ export type DocumentType =
   | 'financial_report'
   | 'product_movement_report';
 
-export type TemplateFormat = '80mm' | 'A4';
+export type TemplateFormat = '80mm' | 'A4' | '58mm';
 export type AlignmentType = 'right' | 'center' | 'left';
 
 export interface TemplateSection {

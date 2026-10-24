@@ -71,7 +71,7 @@ interface SettingsState {
   invoiceNotice: string;
   invoiceFooterNotes: string;
 
-  defaultPrintFormat: '80mm' | 'A4';
+  defaultPrintFormat: '58mm' | '80mm' | 'A4';
   showCompanyLogo: boolean;
   showCustomerBalance: boolean;
   showPreviousBalance: boolean;
@@ -721,7 +721,8 @@ export default function ComprehensiveSettingsPage() {
                     onChange={(e) => setSettings({ ...settings, defaultPrintFormat: e.target.value as any })}
                     className="w-full h-11 px-3 text-xs font-bold rounded-xl border bg-background"
                   >
-                    <option value="80mm">طابعة حرارية رول (80mm Thermal Receipt) - موصى به للمحلات</option>
+                    <option value="58mm">طابعة حرارية رول صغيرة (58mm Thermal Receipt)</option>
+                    <option value="80mm">طابعة حرارية رول قياسية (80mm Thermal Receipt) - موصى به للمحلات</option>
                     <option value="A4">طابعة مكتبية رسمية (A4 Standard) - موصى به للشركات والجملة</option>
                   </select>
                 </div>

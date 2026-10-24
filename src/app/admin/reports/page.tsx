@@ -39,6 +39,7 @@ export default function ReportsPage() {
   const [sales, setSales] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Selected invoice for detail modal
@@ -52,14 +53,16 @@ export default function ReportsPage() {
   const loadReportsData = async () => {
     setLoading(true);
     try {
-      const [saleRows, purchaseRows, customerRows] = await Promise.all([
+      const [saleRows, purchaseRows, customerRows, productRows] = await Promise.all([
         POSService.getRecentSales(),
         InventoryService.getPurchases(),
-        InventoryService.getCustomers()
+        InventoryService.getCustomers(),
+        InventoryService.getProducts()
       ]);
       setSales(saleRows || []);
       setPurchases(purchaseRows || []);
       setCustomers(customerRows || []);
+      setProducts(productRows || []);
     } catch (e) {
       console.error(e);
       toast({ variant: 'destructive', title: 'فشل تحميل بيانات التقارير' });
@@ -72,7 +75,48 @@ export default function ReportsPage() {
     const totalSales = sales.reduce((acc, s) => acc + (Number(s.totalAmount) || 0), 0);
     const totalPurchases = purchases.reduce((acc, p) => acc + (Number(p.totalAmount) || 0), 0);
     const totalDebts = customers.reduce((acc, c) => acc + (Number(c.balance) || 0), 0);
-    const estimatedProfit = Math.max(0, totalSales - totalPurchases);
+
+    // Build products cost lookup
+    const productCostMap = new Map<string, number>();
+    products.forEach((p: any) => {
+      const c = Number(p.purchasePrice || p.cost || 0);
+      if (c > 0) {
+        if (p.id) productCostMap.set(p.id, c);
+        if (p.barcode) productCostMap.set(p.barcode, c);
+      }
+    });
+
+    // Root-cause accurate profit calculation:
+    // Profit = (Actual Selling Price - Item Cost) * Quantity - Invoice Discount
+    // If cost is missing/zero, do NOT treat as 0 (which would assume 100% profit).
+    // Instead estimate standard conservative cost ~80% (yielding 20% margin).
+    let calculatedProfit = 0;
+    sales.forEach((s: any) => {
+      const items = s.items || s.cart || [];
+      const discount = Number(s.discountAmount || s.discount || 0);
+      let saleItemsProfit = 0;
+
+      if (items.length > 0) {
+        items.forEach((it: any) => {
+          const qty = Number(it.quantity) || 1;
+          const price = Number(it.unitPrice || it.price) || 0;
+          let cost = Number(it.cost || it.purchasePrice || it.purchase_price) || 0;
+          if (cost <= 0) {
+            cost = productCostMap.get(it.productId || it.id) || productCostMap.get(it.barcode) || 0;
+          }
+          if (cost <= 0) {
+            // If cost still missing, do not consider cost = 0! Estimate standard cost ~80%
+            cost = price > 0 ? price * 0.8 : 0;
+          }
+          saleItemsProfit += (price - cost) * qty;
+        });
+        calculatedProfit += Math.max(0, saleItemsProfit - discount);
+      } else {
+        // Fallback for sales without detailed line items: 20% margin
+        const total = Number(s.totalAmount) || 0;
+        calculatedProfit += total * 0.2;
+      }
+    });
 
     return { 
       totalSales, 
@@ -80,9 +124,9 @@ export default function ReportsPage() {
       totalDebts, 
       salesCount: sales.length, 
       purchasesCount: purchases.length, 
-      estimatedProfit 
+      estimatedProfit: Math.round(calculatedProfit)
     };
-  }, [sales, purchases, customers]);
+  }, [sales, purchases, customers, products]);
 
   const chartData = useMemo(() => {
     const days = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
@@ -98,7 +142,23 @@ export default function ReportsPage() {
         const dayIndex = date.getDay();
         const total = Number(s.totalAmount) || 0;
         salesByDay[dayIndex] += total;
-        profitByDay[dayIndex] += total * 0.2; // approx 20% margin
+        
+        const items = s.items || s.cart || [];
+        const discount = Number(s.discountAmount || s.discount || 0);
+        let daySaleProfit = 0;
+        if (items.length > 0) {
+          items.forEach((it: any) => {
+            const qty = Number(it.quantity) || 1;
+            const price = Number(it.unitPrice || it.price) || 0;
+            let cost = Number(it.cost || it.purchasePrice) || 0;
+            if (cost <= 0) cost = price * 0.8;
+            daySaleProfit += (price - cost) * qty;
+          });
+          daySaleProfit = Math.max(0, daySaleProfit - discount);
+        } else {
+          daySaleProfit = total * 0.2;
+        }
+        profitByDay[dayIndex] += Math.round(daySaleProfit);
       }
     });
 

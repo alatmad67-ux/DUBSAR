@@ -12,7 +12,8 @@ import {
   Wrench, 
   X,
   Eye,
-  Download
+  Download,
+  Send
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -30,7 +31,7 @@ interface PrintPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   invoiceData: Omit<PrintableInvoiceProps, 'format'>;
-  initialFormat?: 'A4' | '80mm';
+  initialFormat?: 'A4' | '80mm' | '58mm';
 }
 
 export function PrintPreviewModal({
@@ -39,7 +40,7 @@ export function PrintPreviewModal({
   invoiceData,
   initialFormat = '80mm'
 }: PrintPreviewModalProps) {
-  const [format, setFormat] = useState<'A4' | '80mm'>(initialFormat);
+  const [format, setFormat] = useState<'A4' | '80mm' | '58mm'>(initialFormat);
   const [printers, setPrinters] = useState<any[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [loadingPrinters, setLoadingPrinters] = useState(false);
@@ -51,16 +52,19 @@ export function PrintPreviewModal({
 
   useEffect(() => {
     if (isOpen) {
+      if (initialFormat) {
+        setFormat(initialFormat);
+      }
       const syncUnified = LocalAuthService.getUnifiedSettingsSync();
       setBusinessSettings(syncUnified);
-      if (syncUnified.defaultPrintFormat) {
+      if (!initialFormat && syncUnified.defaultPrintFormat) {
         setFormat(syncUnified.defaultPrintFormat);
       }
 
       LocalAuthService.getUnifiedSettings()
         .then((unified) => {
           setBusinessSettings(unified);
-          if (unified.defaultPrintFormat) {
+          if (!initialFormat && unified.defaultPrintFormat) {
             setFormat(unified.defaultPrintFormat);
           }
         })
@@ -140,6 +144,38 @@ export function PrintPreviewModal({
     }
   };
 
+  const handleShareWhatsApp = () => {
+    const bizName = businessSettings?.businessName || 'مؤسسة دوبسار التجارية';
+    const customerName = invoiceData.customer?.name || 'زبون نقدي';
+    const cur = invoiceData.currency === 'USD' ? '$' : 'د.ع';
+    let phone = (invoiceData.customer?.phone || '').replace(/\D/g, '');
+    if (phone.startsWith('07')) {
+      phone = '964' + phone.substring(1);
+    } else if (phone.startsWith('7')) {
+      phone = '964' + phone;
+    }
+
+    const itemsLines = (invoiceData.items || [])
+      .map((it, i) => `${i + 1}. ${it.name} (${it.quantity} × ${Number(it.price).toLocaleString('en-US')}) = ${(it.quantity * it.price).toLocaleString('en-US')} ${cur}`)
+      .join('\n');
+
+    const msg = [
+      `مرحباً ${customerName}،`,
+      `شكراً لتعاملكم مع ${bizName}.`,
+      `📄 فاتورة رقم: ${invoiceData.invoiceNo} | التاريخ: ${invoiceData.date}`,
+      itemsLines ? `\n📦 المواد:\n${itemsLines}\n` : '',
+      `💰 الصافي المطلوب: ${Number(invoiceData.netTotal || 0).toLocaleString('en-US')} ${cur}`,
+      `✅ الواصل: ${Number(invoiceData.paidAmount || 0).toLocaleString('en-US')} ${cur}`,
+      Number(invoiceData.remaining || 0) > 0 ? `📌 المتبقي: ${Number(invoiceData.remaining || 0).toLocaleString('en-US')} ${cur}` : '',
+      `\nنظام دوبسار لإدارة المبيعات | 07858833838`
+    ].filter(Boolean).join('\n');
+
+    const waUrl = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank');
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl h-[92vh] flex flex-col p-0 overflow-hidden rounded-[28px] border-none shadow-2xl bg-slate-100 dark:bg-slate-950">
@@ -158,6 +194,17 @@ export function PrintPreviewModal({
           <div className="flex items-center gap-2">
             {/* Format Toggles */}
             <div className="flex bg-slate-800 p-1 rounded-xl gap-1 border border-slate-700">
+              <button
+                type="button"
+                onClick={() => setFormat('58mm')}
+                className={cn(
+                  'px-3 py-1 rounded-lg text-xs font-black flex items-center gap-1.5 transition-all',
+                  format === '58mm' ? 'bg-primary text-white shadow' : 'text-slate-400 hover:text-white'
+                )}
+              >
+                <Layout className="h-3.5 w-3.5" />
+                <span>58mm حراري</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setFormat('80mm')}
@@ -221,6 +268,18 @@ export function PrintPreviewModal({
               <span>حفظ PDF</span>
             </Button>
 
+            {/* Share via WhatsApp Button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleShareWhatsApp}
+              className="h-8 px-3 text-xs font-black gap-1.5 bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-600 hover:text-white"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>واتساب</span>
+            </Button>
+
             {/* Main Print Button */}
             <Button
               type="button"
@@ -247,14 +306,14 @@ export function PrintPreviewModal({
         <div className="flex-1 overflow-y-auto p-6 flex justify-center items-start bg-slate-200/70 dark:bg-slate-900/80 custom-scrollbar">
           <div className={cn(
             "bg-white shadow-2xl rounded-sm overflow-hidden flex justify-center transition-all",
-            format === '80mm' ? "w-[80mm] max-w-[302px]" : "w-[750px] max-w-full"
+            format === '58mm' ? "w-[58mm] max-w-[220px]" : format === '80mm' ? "w-[80mm] max-w-[302px]" : "w-[750px] max-w-full"
           )}>
             <iframe
               title="Print Preview Single Source of Truth"
               srcDoc={renderedHtml}
               className="w-full border-none block"
               onLoad={(e) => {
-                if (format === '80mm') {
+                if (format === '80mm' || format === '58mm') {
                   try {
                     const iframeEl = e.currentTarget;
                     const docBody = iframeEl.contentWindow?.document?.body;
